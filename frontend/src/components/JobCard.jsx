@@ -1,11 +1,31 @@
-import React from "react";
-import { CheckCircle2, Loader2, Phone, Smartphone } from "lucide-react";
+import React, { useState } from "react";
+import { CheckCircle2, Loader2, Phone, Smartphone, ImageIcon } from "lucide-react";
+import { photoUrl } from "@/lib/api";
 
 export default function JobCard({ job, onComplete, busy, formatINR, display }) {
   const isCompleted = job.Status === "Completed";
+  const [zoom, setZoom] = useState(false);
+  const photo = job.Photo ? photoUrl(job.Photo) : "";
+
   return (
     <div className="job" data-testid={`job-card-${job.ID}`}>
       <div className="job-top">
+        {photo ? (
+          <button
+            type="button"
+            className="job-photo"
+            onClick={() => setZoom(true)}
+            data-testid={`job-photo-${job.ID}`}
+            aria-label="View photo"
+          >
+            <img src={photo} alt="Phone" />
+          </button>
+        ) : (
+          <div className="job-photo placeholder">
+            <ImageIcon size={22} />
+          </div>
+        )}
+
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="job-name" data-testid={`job-name-${job.ID}`}>
             {display(job.Name)}
@@ -70,6 +90,16 @@ export default function JobCard({ job, onComplete, busy, formatINR, display }) {
               </>
             )}
           </button>
+        </div>
+      )}
+
+      {zoom && photo && (
+        <div
+          className="lightbox"
+          onClick={() => setZoom(false)}
+          data-testid={`job-photo-zoom-${job.ID}`}
+        >
+          <img src={photo} alt="Phone" />
         </div>
       )}
     </div>

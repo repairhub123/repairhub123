@@ -2,28 +2,28 @@
  * MOBILE REPAIR SHOP — Google Apps Script Web App
  *
  * HOW TO DEPLOY:
- * 1. Create (or open) a Google Sheet.
+ * 1. Open (or create) a Google Sheet.
  * 2. Rename the active sheet to "Jobs" (or change SHEET_NAME below).
  * 3. Extensions → Apps Script → paste this file, Save.
- * 4. Deploy → New deployment → Type: Web app
- *      - Execute as: Me
- *      - Who has access: Anyone
- * 5. Copy the Web App URL and paste into /app/backend/.env as
- *      GOOGLE_SHEET_WEBAPP_URL="..."
- * 6. Restart backend:  sudo supervisorctl restart backend
+ * 4. Run setupHeaders() once from the Apps Script editor (authorise when asked).
+ * 5. Deploy → New deployment → Type: Web app
+ *      Execute as: Me  |  Who has access: Anyone
+ * 6. Copy the Web App URL → put into /app/backend/.env as GOOGLE_SHEET_WEBAPP_URL.
+ * 7. `sudo supervisorctl restart backend`.
  *
- * The sheet header row (row 1) MUST be exactly (in this order):
- * ID | Name | Phone | Model | Work | Cost | Amount | Profit | Percentage | Share | Status | received_date | received_time | completed_date | completed_time
- *
- * Run `setupHeaders` once from the Apps Script editor to auto-create the header row.
+ * Column order (strict, additive — column 16 "Photo" is added without changing 1-15):
+ * ID | Name | Phone | Model | Work | Cost | Amount | Profit | Percentage | Share | Status |
+ * received_date | received_time | completed_date | completed_time | Photo
  */
 
 const SHEET_NAME = "Jobs";
 const COLUMNS = [
   "ID", "Name", "Phone", "Model", "Work", "Cost", "Amount", "Profit",
   "Percentage", "Share", "Status",
-  "received_date", "received_time", "completed_date", "completed_time"
+  "received_date", "received_time", "completed_date", "completed_time",
+  "Photo"
 ];
+const NUMERIC = new Set(["Cost", "Amount", "Profit", "Percentage", "Share"]);
 
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -32,6 +32,12 @@ function getSheet_() {
   if (sh.getLastRow() === 0) {
     sh.getRange(1, 1, 1, COLUMNS.length).setValues([COLUMNS]);
     sh.setFrozenRows(1);
+  } else {
+    // Ensure Photo column exists (backward-compatible additive migration)
+    const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    if (header.indexOf("Photo") === -1) {
+      sh.getRange(1, header.length + 1).setValue("Photo");
+    }
   }
   return sh;
 }
@@ -56,14 +62,9 @@ function readAll_() {
 
 function doGet(e) {
   try {
-    const rows = readAll_();
-    return ContentService
-      .createTextOutput(JSON.stringify({ jobs: rows }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ok_({ jobs: readAll_() });
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ok_({ error: String(err) });
   }
 }
 
@@ -75,9 +76,7 @@ function doPost(e) {
 
     if (action === "add") {
       const row = COLUMNS.map(c => {
-        if (c === "Cost" || c === "Amount" || c === "Profit" || c === "Percentage" || c === "Share") {
-          return Number(body[c] || 0);
-        }
+        if (NUMERIC.has(c)) return Number(body[c] || 0);
         return body[c] === undefined || body[c] === null ? "" : String(body[c]);
       });
       sh.appendRow(row);
@@ -91,12 +90,13 @@ function doPost(e) {
       for (let i = 0; i < ids.length; i++) {
         if (String(ids[i][0]) === String(body.id)) {
           const rowIndex = i + 2;
-          const statusCol = COLUMNS.indexOf("Status") + 1;
-          const cdCol = COLUMNS.indexOf("completed_date") + 1;
-          const ctCol = COLUMNS.indexOf("completed_time") + 1;
-          if (body.status !== undefined) sh.getRange(rowIndex, statusCol).setValue(body.status);
-          if (body.completed_date !== undefined) sh.getRange(rowIndex, cdCol).setValue(body.completed_date);
-          if (body.completed_time !== undefined) sh.getRange(rowIndex, ctCol).setValue(body.completed_time);
+          const setCol = (name, val) => {
+            const c = COLUMNS.indexOf(name);
+            if (c >= 0 && val !== undefined) sh.getRange(rowIndex, c + 1).setValue(val);
+          };
+          setCol("Status", body.status);
+          setCol("completed_date", body.completed_date);
+          setCol("completed_time", body.completed_time);
           return ok_({ ok: true, id: body.id });
         }
       }

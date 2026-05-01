@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,57 +7,71 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { addJob, formatINR } from "@/lib/api";
+import { addJob, uploadPhoto, photoUrl, formatINR } from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera, ImagePlus, X } from "lucide-react";
 
 const REPAIR_TYPES = [
-  "Screen",
-  "Battery",
-  "Charging",
-  "Software",
-  "Water Damage",
-  "Speaker/Mic",
-  "Camera",
-  "Other",
+  "Screen", "Battery", "Charging", "Software",
+  "Water Damage", "Speaker/Mic", "Camera", "Other",
 ];
 
 const PERCENT_OPTIONS = [30, 40];
 
 const EMPTY = {
-  name: "",
-  phone: "",
-  model: "",
-  types: [],
-  description: "",
-  cost: "",
-  amount: "",
-  percentage: 30,
+  name: "", phone: "", model: "",
+  types: [], description: "",
+  cost: "", amount: "", percentage: 30,
+  photoPath: "", photoPreview: "",
 };
 
 export default function AddJobDialog({ open, onOpenChange, onAdded }) {
   const [f, setF] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
 
-  const profit = useMemo(() => {
-    const a = Number(f.amount || 0);
-    const c = Number(f.cost || 0);
-    return a - c;
-  }, [f.amount, f.cost]);
-
-  const share = useMemo(() => {
-    return Math.round(profit * (Number(f.percentage) / 100) * 100) / 100;
-  }, [profit, f.percentage]);
+  const profit = useMemo(() => Number(f.amount || 0) - Number(f.cost || 0), [f.amount, f.cost]);
+  const share = useMemo(
+    () => Math.round(profit * (Number(f.percentage) / 100) * 100) / 100,
+    [profit, f.percentage]
+  );
 
   const toggleType = (t) =>
     setF((p) => ({
       ...p,
-      types: p.types.includes(t)
-        ? p.types.filter((x) => x !== t)
-        : [...p.types, t],
+      types: p.types.includes(t) ? p.types.filter((x) => x !== t) : [...p.types, t],
     }));
 
   const reset = () => setF(EMPTY);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image");
+      return;
+    }
+    // quick local preview
+    const reader = new FileReader();
+    reader.onload = (e) => setF((p) => ({ ...p, photoPreview: e.target.result }));
+    reader.readAsDataURL(file);
+
+    setUploading(true);
+    try {
+      const { path } = await uploadPhoto(file);
+      setF((p) => ({ ...p, photoPath: path }));
+      toast.success("Photo uploaded");
+    } catch (err) {
+      console.error(err);
+      toast.error("Photo upload failed");
+      setF((p) => ({ ...p, photoPreview: "" }));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const clearPhoto = () => setF((p) => ({ ...p, photoPath: "", photoPreview: "" }));
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -79,6 +93,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
         cost: Number(f.cost || 0),
         amount: Number(f.amount || 0),
         percentage: Number(f.percentage),
+        photo: f.photoPath || "",
       });
       reset();
       onOpenChange(false);
@@ -91,20 +106,84 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
     }
   };
 
+  const previewSrc = f.photoPreview || (f.photoPath ? photoUrl(f.photoPath) : "");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="dialog-content max-w-lg"
+        className="dialog-content max-w-lg max-h-[92vh] overflow-y-auto"
         data-testid="add-job-dialog"
       >
         <DialogHeader>
           <DialogTitle style={{ color: "var(--text)" }}>New Repair Job</DialogTitle>
           <DialogDescription style={{ color: "var(--muted)" }}>
-            Fill in the customer and repair details. Profit and share are calculated automatically.
+            Fill in details. Profit and share are calculated automatically.
           </DialogDescription>
         </DialogHeader>
 
         <form className="form" onSubmit={onSubmit}>
+          {/* Photo capture */}
+          <div className="field">
+            <label>Phone photo</label>
+            {previewSrc ? (
+              <div className="photo-preview" data-testid="photo-preview">
+                <img src={previewSrc} alt="Phone" />
+                <button
+                  type="button"
+                  className="photo-remove"
+                  data-testid="btn-remove-photo"
+                  onClick={clearPhoto}
+                  aria-label="Remove photo"
+                >
+                  <X size={14} />
+                </button>
+                {uploading && (
+                  <div className="photo-overlay">
+                    <Loader2 size={18} className="spin" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="photo-picker">
+                <button
+                  type="button"
+                  className="btn photo-btn"
+                  data-testid="btn-capture-camera"
+                  onClick={() => cameraRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Camera size={16} /> Camera
+                </button>
+                <button
+                  type="button"
+                  className="btn photo-btn"
+                  data-testid="btn-pick-gallery"
+                  onClick={() => galleryRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <ImagePlus size={16} /> Gallery
+                </button>
+              </div>
+            )}
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={(e) => handleFile(e.target.files?.[0])}
+              data-testid="input-camera"
+            />
+            <input
+              ref={galleryRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => handleFile(e.target.files?.[0])}
+              data-testid="input-gallery"
+            />
+          </div>
+
           <div className="field">
             <label>Customer name</label>
             <input
@@ -113,7 +192,6 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               value={f.name}
               onChange={(e) => setF({ ...f, name: e.target.value })}
               placeholder="Ravi Kumar"
-              autoFocus
             />
           </div>
 
@@ -236,7 +314,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               type="submit"
               data-testid="btn-save-job"
               className="btn primary"
-              disabled={submitting}
+              disabled={submitting || uploading}
             >
               {submitting ? (
                 <>

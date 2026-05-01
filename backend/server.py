@@ -1,11 +1,12 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import json
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 import uuid
 from datetime import datetime
@@ -20,6 +21,9 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 SHEET_URL = os.environ.get('GOOGLE_SHEET_WEBAPP_URL', '').strip()
+EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY', '').strip()
+APP_NAME = os.environ.get('APP_NAME', 'repair-desk').strip()
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 IST = ZoneInfo("Asia/Kolkata")
 
 app = FastAPI()
@@ -27,6 +31,50 @@ api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# ============== STORAGE ==============
+_storage_key: Optional[str] = None
+
+
+def init_storage() -> Optional[str]:
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    if not EMERGENT_KEY:
+        return None
+    try:
+        r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+        r.raise_for_status()
+        _storage_key = r.json()["storage_key"]
+        return _storage_key
+    except Exception as e:
+        logger.error(f"storage init failed: {e}")
+        return None
+
+
+def put_object(path: str, data: bytes, content_type: str) -> Dict[str, Any]:
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=503, detail="Storage not available")
+    r = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def get_object(path: str):
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=503, detail="Storage not available")
+    r = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60,
+    )
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 
 # ============== MODELS ==============
@@ -38,6 +86,7 @@ class JobCreate(BaseModel):
     cost: float = 0
     amount: float = 0
     percentage: float = 30
+    photo: Optional[str] = ""  # storage path, e.g. "repair-desk/photos/<uuid>.jpg"
 
 
 class JobUpdate(BaseModel):
@@ -66,7 +115,7 @@ def to_num(v: Any) -> float:
 
 
 def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensure every job has all 15 fields with correct types."""
+    """Ensure every job has all 15 strict fields + optional Photo (column 16, additive)."""
     return {
         "ID": str(row.get("ID", "") or ""),
         "Name": str(row.get("Name", "") or ""),
@@ -83,10 +132,11 @@ def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
         "received_time": str(row.get("received_time", "") or ""),
         "completed_date": str(row.get("completed_date", "") or ""),
         "completed_time": str(row.get("completed_time", "") or ""),
+        "Photo": str(row.get("Photo", "") or ""),
     }
 
 
-# ============== GOOGLE SHEET PROXY ==============
+# ============== SHEET PROXY ==============
 def sheet_get() -> List[Dict[str, Any]]:
     if not SHEET_URL:
         return None
@@ -110,7 +160,7 @@ def sheet_post(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
         r = requests.post(
             SHEET_URL,
-            data=__import__("json").dumps(payload),
+            data=json.dumps(payload),
             headers={"Content-Type": "application/json"},
             timeout=20,
         )
@@ -137,7 +187,6 @@ async def list_jobs():
     if SHEET_URL:
         rows = sheet_get()
         return [normalize_job(r) for r in (rows or [])]
-    # MongoDB fallback
     rows = await db.jobs.find({}, {"_id": 0}).to_list(5000)
     return [normalize_job(r) for r in rows]
 
@@ -167,6 +216,7 @@ async def add_job(job: JobCreate):
         "received_time": now_time(),
         "completed_date": "",
         "completed_time": "",
+        "Photo": (job.photo or "").strip(),
     }
 
     if SHEET_URL:
@@ -199,6 +249,59 @@ async def update_job(upd: JobUpdate):
             }},
         )
     return {"ok": True, **payload}
+
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"}
+EXT_BY_TYPE = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/webp": "webp", "image/heic": "heic", "image/heif": "heif",
+}
+
+
+@api_router.post("/upload")
+async def upload(file: UploadFile = File(...)):
+    ct = (file.content_type or "").lower()
+    if ct not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported image type: {ct}")
+    data = await file.read()
+    if len(data) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 8MB)")
+
+    ext = EXT_BY_TYPE.get(ct, "jpg")
+    path = f"{APP_NAME}/photos/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, ct)
+    stored_path = result.get("path", path)
+
+    await db.files.insert_one({
+        "id": str(uuid.uuid4()),
+        "storage_path": stored_path,
+        "content_type": ct,
+        "size": result.get("size", len(data)),
+        "created_at": datetime.now(IST).isoformat(),
+    })
+    return {"path": stored_path}
+
+
+@api_router.get("/files/{path:path}")
+async def download_file(path: str):
+    record = await db.files.find_one({"storage_path": path}, {"_id": 0})
+    if not record:
+        # still try to fetch — file might have been uploaded to the sheet externally
+        pass
+    try:
+        data, content_type = get_object(path)
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else 500
+        raise HTTPException(status_code=404 if code == 404 else 502, detail="File not found")
+    return Response(content=data, media_type=(record or {}).get("content_type", content_type))
+
+
+@app.on_event("startup")
+async def startup():
+    key = init_storage()
+    logger.info(f"Storage initialized: {bool(key)}")
 
 
 app.include_router(api_router)

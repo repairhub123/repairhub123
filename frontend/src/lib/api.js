@@ -19,6 +19,20 @@ export async function addJob(payload) {
   return res.data;
 }
 
+export async function uploadPhoto(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await api.post("/upload", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data; // { path: "repair-desk/photos/<uuid>.jpg" }
+}
+
+export function photoUrl(path) {
+  if (!path) return "";
+  return `${API}/files/${path}`;
+}
+
 export async function markCompleted(id) {
   const res = await api.post("/jobs/update", {
     id,

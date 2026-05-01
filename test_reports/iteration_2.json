@@ -1,0 +1,34 @@
+{
+  "summary": "Verified the new customer-photo feature end-to-end. Backend: 13/13 pytest cases pass (6 new photo tests + 7 regression). Emergent object storage init succeeds with EMERGENT_LLM_KEY. POST /api/upload returns 200 with {path: 'repair-desk/photos/<uuid>.png'} for a valid PNG, 400 for text/plain (Unsupported image type), and 400 for >8MB payloads. GET /api/files/{path} returns the bytes with image/* Content-Type. POST /api/jobs accepts optional 'photo' field; normalize_job now returns exactly 16 keys (15 strict + Photo) and round-trips Photo via GET /api/jobs. Existing 15-field flows (add/update/list/calc/persistence) still pass unchanged. Frontend (mobile 390x844): Add Job dialog shows the 'Phone photo' section with Camera (btn-capture-camera) and Gallery (btn-pick-gallery) buttons. Setting a 1x1 PNG via gallery input triggers upload, photo-preview testid appears, save button re-enables when upload finishes, job is added, and the saved job-card shows the thumbnail (job-photo-<ID>) and opens the lightbox (job-photo-zoom-<ID>) on click. All assertions passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "JobCard thumbnail/list", "issues": ["The 'Made with Emergent' badge still floats over the bottom-right area on mobile viewport (390x844) and overlaps the 'Mark as Completed' button on the most-recent job. Pre-existing, non-blocking, but worth nudging FAB/CTA above the badge for usability."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_photo_feature.py",
+    "/app/backend/tests/test_repair_shop.py",
+    "/app/test_reports/pytest/photo_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py upload(): file size is enforced only after fully reading the file into memory — for an 8MB+ upload this still allocates the full buffer. Consider streaming/chunked check or rely on Starlette's max_body_size for hard cutoff.",
+    "server.py download_file(): when the DB record is missing it silently falls through; consider returning 404 fast if the record is absent and the upstream object also 404s. Currently behavior is correct but slightly opaque.",
+    "server.py download_file() returns the upstream Content-Type only as fallback; preferring the DB-recorded content_type is fine but ensure cache headers (Cache-Control: public, max-age) are added since photo URLs are immutable (uuid filenames).",
+    "AddJobDialog.jsx: handleFile sets photoPreview from FileReader before upload completes — if upload fails we clear preview, but photoPath remains '' which is handled. However we don't surface any retry UI; minor UX nit.",
+    "AddJobDialog.jsx: missing client-side size guard (>8MB) before calling /api/upload — surfacing a friendly toast before the network round trip would improve UX on slow connections.",
+    "JobCard.jsx: <img> has no width/height attributes nor loading='lazy'; with many jobs this may cause layout shift and unnecessary fetches. Add loading='lazy' and fixed dimensions."
+  ],
+  "updated_files": ["/app/backend/tests/test_photo_feature.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Created TEST_-prefixed jobs in MongoDB during pytest + one TEST_PhotoUI job with an uploaded PNG via the UI flow. Stored object: 'repair-desk/photos/<uuid>.png' (one 1x1 PNG). Safe to drop test_database.jobs and the photos prefix in storage when needed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Photo feature is fully wired. Storage backend at https://integrations.emergentagent.com/objstore/api/v1/storage works with EMERGENT_LLM_KEY. Use /app/backend/tests/test_photo_feature.py as regression. For Playwright mobile tests, gallery input is hidden (display:none) so use page.set_input_files on [data-testid=\"input-gallery\"] with an in-memory PNG buffer; camera input is identical but with capture='environment'. Sheet URL is intentionally empty (MongoDB fallback).",
+  "rca of the issue": "No defects found in the new photo feature."
+}
