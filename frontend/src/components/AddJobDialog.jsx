@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { addJob, formatINR } from "@/lib/api";
@@ -98,6 +99,9 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
       >
         <DialogHeader>
           <DialogTitle style={{ color: "var(--text)" }}>New Repair Job</DialogTitle>
+          <DialogDescription style={{ color: "var(--muted)" }}>
+            Fill in the customer and repair details. Profit and share are calculated automatically.
+          </DialogDescription>
         </DialogHeader>
 
         <form className="form" onSubmit={onSubmit}>
