@@ -18,7 +18,7 @@ export default function JobCard({ job, onComplete, busy, formatINR, display }) {
             data-testid={`job-photo-${job.ID}`}
             aria-label="View photo"
           >
-            <img src={photo} alt="Phone" />
+            <img src={photo} alt="Phone" loading="lazy" />
           </button>
         ) : (
           <div className="job-photo placeholder">

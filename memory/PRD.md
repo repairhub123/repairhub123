@@ -19,7 +19,8 @@ ID, Name, Phone, Model, Work, Cost, Amount, Profit, Percentage, Share, Status, r
 - `GET  /api/config` — `{ sheet_connected: bool }`
 
 ## Implemented (Feb 2026)
-- ✅ Add Job dialog: multi-select repair type chips (Screen/Battery/Charging/Software/Water Damage/Speaker-Mic/Camera/Other), description, cost, amount, 30%/40% share
+- ✅ Add Job dialog: multi-select repair type chips, description, cost, amount, 30%/40% share
+- ✅ **Customer phone photo** via Camera or Gallery (Emergent Object Storage), thumbnail on job card, tap to zoom lightbox
 - ✅ Auto Profit = Amount − Cost, Share = Profit × %/100, live preview in dialog
 - ✅ Auto received_date/time (IST), Status=Pending
 - ✅ Job list with All/Pending/Completed tabs
@@ -29,8 +30,9 @@ ID, Name, Phone, Model, Work, Cost, Amount, Profit, Percentage, Share, Status, r
 - ✅ Dark UI with acid-lime accent, Indian Rupee formatting (₹1,200)
 - ✅ "N/A" for missing fields
 - ✅ Name preserved exactly (no "Customer" fallback)
-- ✅ Google Apps Script — paste & deploy; backend picks up via `GOOGLE_SHEET_WEBAPP_URL` env var
+- ✅ Google Apps Script — paste & deploy; backend picks up via `GOOGLE_SHEET_WEBAPP_URL`
 - ✅ MongoDB fallback so app is usable from day 1
+- ✅ Sheet schema: 15 strict columns + Photo as additive column 16 (no reorder/rename)
 
 ## Backlog / Next
 - P1: Edit job (amount/cost corrections)

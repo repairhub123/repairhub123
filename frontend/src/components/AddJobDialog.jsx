@@ -52,6 +52,10 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
       toast.error("Please select an image");
       return;
     }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image too large (max 8MB)");
+      return;
+    }
     // quick local preview
     const reader = new FileReader();
     reader.onload = (e) => setF((p) => ({ ...p, photoPreview: e.target.result }));
