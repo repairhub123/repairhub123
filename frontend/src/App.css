@@ -447,3 +447,147 @@ html, body, #root, .App {
 .big-kpi .sub {
   font-size: 10px; color: var(--muted); margin-top: 4px;
 }
+
+/* ===== Role Gate ===== */
+.role-gate {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--bg-0);
+  display: grid; place-items: center; padding: 20px;
+}
+.role-card {
+  max-width: 440px; width: 100%;
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: 18px; padding: 26px;
+}
+.role-brand {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.role-brand h1 { font-size: 20px; margin: 0; font-weight: 700; }
+.role-brand small {
+  color: var(--muted); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.role-lead {
+  font-size: 13px; color: var(--muted); margin: 8px 0 22px;
+  line-height: 1.55;
+}
+.role-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.role-pick {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 16px; border-radius: 14px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--text); cursor: pointer; font-family: inherit;
+  text-align: left; transition: all .15s ease;
+}
+.role-pick:hover { transform: translateY(-2px); }
+.role-pick.boss:hover { border-color: var(--boss); }
+.role-pick.tech:hover { border-color: var(--tech); }
+.role-pick.boss svg { color: var(--boss); }
+.role-pick.tech svg { color: var(--tech); }
+.role-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.role-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+/* ===== Header role chip ===== */
+.header-right {
+  display: flex; gap: 8px; align-items: center;
+}
+.role-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 8px; border-radius: 999px;
+  background: var(--bg-1); border: 1px solid var(--line);
+  color: var(--text); font-size: 11px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+  transition: border-color .15s ease;
+}
+.role-chip.boss { border-color: rgba(96, 165, 250, 0.4); }
+.role-chip.boss svg:first-child { color: var(--boss); }
+.role-chip.tech { border-color: rgba(251, 146, 60, 0.4); }
+.role-chip.tech svg:first-child { color: var(--tech); }
+.role-chip:hover { border-color: var(--accent); }
+
+.sheet-status-row {
+  font-size: 10px; color: var(--muted);
+  margin: -10px 2px 16px; letter-spacing: 0.04em;
+}
+
+/* ===== Today Stats ===== */
+.today-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 14px;
+}
+.today-tile {
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px;
+  min-width: 0;
+}
+.today-tile .k {
+  font-size: 9px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.today-tile .v {
+  font-size: 17px; font-weight: 700; margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.today-tile .sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.today-tile.my.boss { border-color: rgba(96, 165, 250, 0.35); }
+.today-tile.my.boss .v { color: var(--boss); }
+.today-tile.my.tech { border-color: rgba(251, 146, 60, 0.35); }
+.today-tile.my.tech .v { color: var(--tech); }
+.today-tile.other.boss .v { color: var(--boss); }
+.today-tile.other.tech .v { color: var(--tech); }
+
+/* ===== Scope (All / Mine) row ===== */
+.scope-row {
+  display: flex; gap: 8px; margin: 12px 0 6px;
+}
+
+/* ===== added_by pill ===== */
+.job-name-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.added-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 999px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid; white-space: nowrap;
+}
+.added-pill.boss {
+  color: var(--boss); border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.08);
+}
+.added-pill.tech {
+  color: var(--tech); border-color: rgba(251, 146, 60, 0.35);
+  background: rgba(251, 146, 60, 0.08);
+}
+
+/* Phone as tappable link */
+.job-phone.linkish {
+  background: transparent; border: none; padding: 0;
+  color: var(--muted); font-size: 13px; font-family: inherit;
+  cursor: pointer; margin-top: 2px;
+  text-align: left;
+}
+.job-phone.linkish:hover { color: var(--accent); }
+
+/* ===== Customer history ===== */
+.history-list {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 6px;
+}
+.history-row {
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
+}
+.history-top {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.history-model { font-size: 14px; font-weight: 600; }
+.history-work { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.history-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; font-size: 11px; color: var(--muted);
+}
+.history-amount { color: var(--text); font-weight: 600; }

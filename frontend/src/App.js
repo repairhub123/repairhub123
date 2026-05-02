@@ -3,13 +3,21 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import RepairShop from "@/pages/RepairShop";
+import RoleGate from "@/components/RoleGate";
+import { useRole } from "@/hooks/useRole";
+
+function Shell() {
+  const { role, setRole, clearRole } = useRole();
+  if (!role) return <RoleGate onPick={setRole} />;
+  return <RepairShop role={role} onSwitchRole={clearRole} />;
+}
 
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<RepairShop />} />
+          <Route path="/" element={<Shell />} />
         </Routes>
       </BrowserRouter>
       <Toaster

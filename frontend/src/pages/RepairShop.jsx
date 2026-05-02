@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Plus, Search, Wrench, Loader2 } from "lucide-react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import {
+  Plus, Search, Wrench, Loader2, RefreshCw, Crown, User, LogOut,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchJobs, markCompleted, fetchConfig,
@@ -8,27 +10,36 @@ import {
 import JobDialog from "@/components/JobDialog";
 import JobCard from "@/components/JobCard";
 import Reports from "@/components/Reports";
+import TodayStats from "@/components/TodayStats";
+import CustomerHistory from "@/components/CustomerHistory";
 
 const TABS = ["All", "Pending", "Completed"];
+const POLL_MS = 10000;
 
-export default function RepairShop() {
+export default function RepairShop({ role, onSwitchRole }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("jobs"); // jobs | reports
+  const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState("jobs");
   const [tab, setTab] = useState("All");
+  const [scope, setScope] = useState("all"); // "all" | "mine"
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [sheetConnected, setSheetConnected] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [historyPhone, setHistoryPhone] = useState(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setSyncing(true);
     try {
       const data = await fetchJobs();
       setJobs(data);
     } catch (e) {
       console.error(e);
-      toast.error("Failed to fetch jobs");
+      if (showSpinner) toast.error("Failed to fetch jobs");
+    } finally {
+      if (showSpinner) setSyncing(false);
     }
   }, []);
 
@@ -46,9 +57,39 @@ export default function RepairShop() {
     })();
   }, [refresh]);
 
+  // Live poll every POLL_MS so the other user's changes show up
+  useEffect(() => {
+    if (dialogOpen || historyPhone) return; // pause polling while a modal is open
+    const id = setInterval(() => refresh(false), POLL_MS);
+    return () => clearInterval(id);
+  }, [refresh, dialogOpen, historyPhone]);
+
+  // Pull-to-refresh (touch)
+  const pullRef = useRef({ startY: 0, armed: false });
+  useEffect(() => {
+    const onStart = (e) => {
+      if (window.scrollY <= 0) {
+        pullRef.current = { startY: e.touches[0].clientY, armed: true };
+      }
+    };
+    const onEnd = async (e) => {
+      const { startY, armed } = pullRef.current;
+      if (!armed) return;
+      const endY = (e.changedTouches && e.changedTouches[0]?.clientY) || startY;
+      pullRef.current.armed = false;
+      if (endY - startY > 80) await refresh(true);
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, [refresh]);
+
   const syncAfterWrite = async () => {
     await delay(1000);
-    await refresh();
+    await refresh(false);
   };
 
   const handleSaved = async () => {
@@ -72,9 +113,17 @@ export default function RepairShop() {
 
   const openAdd = () => { setEditingJob(null); setDialogOpen(true); };
   const openEdit = (job) => { setEditingJob(job); setDialogOpen(true); };
+  const openCustomer = (phone) => phone && setHistoryPhone(phone);
+
+  const visibleJobs = useMemo(() => {
+    if (scope === "mine" && role) {
+      return jobs.filter((j) => (j.added_by || "") === role);
+    }
+    return jobs;
+  }, [jobs, scope, role]);
 
   const filtered = useMemo(() => {
-    let list = jobs;
+    let list = visibleJobs;
     if (tab === "Pending") list = list.filter((j) => j.Status !== "Completed");
     if (tab === "Completed") list = list.filter((j) => j.Status === "Completed");
     const q = query.trim().toLowerCase();
@@ -94,7 +143,7 @@ export default function RepairShop() {
         )
       );
     });
-  }, [jobs, tab, query]);
+  }, [visibleJobs, tab, query]);
 
   const totals = useMemo(() => {
     const pending = jobs.filter((j) => j.Status !== "Completed").length;
@@ -109,6 +158,10 @@ export default function RepairShop() {
     };
   }, [jobs]);
 
+  const isBoss = role === "Boss";
+  const primaryShareLabel = isBoss ? "Boss Share" : "Technician Share";
+  const primaryShareValue = isBoss ? totals.boss : totals.technician;
+
   return (
     <div className="shell" data-testid="app-shell">
       <header className="header">
@@ -121,23 +174,38 @@ export default function RepairShop() {
             <small>mobile repair shop</small>
           </div>
         </div>
-        <div
-          className="mono"
-          style={{ fontSize: 11, color: "var(--muted)" }}
-          data-testid="sheet-status"
-        >
-          {sheetConnected === null
-            ? "…"
-            : sheetConnected
-            ? "● SHEET LIVE"
-            : "● LOCAL MODE"}
+        <div className="header-right">
+          <button
+            type="button"
+            className={`role-chip ${isBoss ? "boss" : "tech"}`}
+            onClick={onSwitchRole}
+            data-testid="role-chip"
+            title="Change role"
+          >
+            {isBoss ? <Crown size={12} /> : <User size={12} />}
+            {role}
+            <LogOut size={10} style={{ opacity: 0.6 }} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => refresh(true)}
+            data-testid="btn-refresh"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={14} className={syncing ? "spin" : ""} />
+          </button>
         </div>
       </header>
 
+      <div className="sheet-status-row mono" data-testid="sheet-status">
+        {sheetConnected === null ? "…" : sheetConnected ? "● SHEET LIVE" : "● LOCAL MODE"}
+        {syncing && <span style={{ marginLeft: 8, color: "var(--muted)" }}>syncing…</span>}
+      </div>
+
       {sheetConnected === false && (
         <div className="toast-banner warn" data-testid="local-mode-banner">
-          Running in local mode. Deploy the Apps Script and set
-          GOOGLE_SHEET_WEBAPP_URL in backend/.env to sync with Google Sheets.
+          Running in local mode. Set GOOGLE_SHEET_WEBAPP_URL in backend/.env to sync.
         </div>
       )}
 
@@ -146,20 +214,18 @@ export default function RepairShop() {
           data-testid="view-jobs"
           className={`vbtn ${view === "jobs" ? "active" : ""}`}
           onClick={() => setView("jobs")}
-        >
-          Jobs
-        </button>
+        >Jobs</button>
         <button
           data-testid="view-reports"
           className={`vbtn ${view === "reports" ? "active" : ""}`}
           onClick={() => setView("reports")}
-        >
-          Reports
-        </button>
+        >Reports</button>
       </div>
 
       {view === "jobs" ? (
         <>
+          <TodayStats jobs={jobs} role={role} />
+
           <div className="kpis" data-testid="kpis">
             <div className="kpi warn" data-testid="kpi-pending">
               <div className="label">Pending</div>
@@ -169,19 +235,12 @@ export default function RepairShop() {
               <div className="label">Completed</div>
               <div className="value">{totals.completed}</div>
             </div>
-            <div className="kpi accent" data-testid="kpi-profit">
-              <div className="label">Profit (done)</div>
-              <div className="value">{formatINR(totals.profit)}</div>
-            </div>
-          </div>
-          <div className="kpis kpis-2" data-testid="kpis-split">
-            <div className="kpi kpi-boss" data-testid="kpi-boss">
-              <div className="label">Boss Share</div>
-              <div className="value">{formatINR(totals.boss)}</div>
-            </div>
-            <div className="kpi kpi-tech" data-testid="kpi-tech">
-              <div className="label">Technician Share</div>
-              <div className="value">{formatINR(totals.technician)}</div>
+            <div
+              className={`kpi ${isBoss ? "kpi-boss" : "kpi-tech"}`}
+              data-testid="kpi-my-share"
+            >
+              <div className="label">{primaryShareLabel}</div>
+              <div className="value">{formatINR(primaryShareValue)}</div>
             </div>
           </div>
 
@@ -203,6 +262,19 @@ export default function RepairShop() {
             />
           </div>
 
+          <div className="scope-row" data-testid="scope-row">
+            <button
+              data-testid="scope-all"
+              className={`chip ${scope === "all" ? "active" : ""}`}
+              onClick={() => setScope("all")}
+            >All jobs</button>
+            <button
+              data-testid="scope-mine"
+              className={`chip ${scope === "mine" ? "active" : ""}`}
+              onClick={() => setScope("mine")}
+            >Added by me</button>
+          </div>
+
           <div className="tabs" role="tablist" data-testid="tabs">
             {TABS.map((t) => (
               <button
@@ -210,9 +282,7 @@ export default function RepairShop() {
                 data-testid={`tab-${t.toLowerCase()}`}
                 className={`tab ${tab === t ? "active" : ""}`}
                 onClick={() => setTab(t)}
-              >
-                {t}
-              </button>
+              >{t}</button>
             ))}
           </div>
 
@@ -222,7 +292,9 @@ export default function RepairShop() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty" data-testid="empty-state">
-              No jobs here yet. Tap the + button to add one.
+              {scope === "mine"
+                ? "No jobs added by you in this filter yet."
+                : "No jobs here yet. Tap the + button to add one."}
             </div>
           ) : (
             <div className="list" data-testid="job-list">
@@ -232,6 +304,7 @@ export default function RepairShop() {
                   job={j}
                   onComplete={handleComplete}
                   onEdit={openEdit}
+                  onOpenCustomer={openCustomer}
                   busy={busyId === j.ID}
                   formatINR={formatINR}
                   display={display}
@@ -261,6 +334,13 @@ export default function RepairShop() {
         }}
         onSaved={handleSaved}
         job={editingJob}
+      />
+
+      <CustomerHistory
+        open={!!historyPhone}
+        onOpenChange={(o) => { if (!o) setHistoryPhone(null); }}
+        phone={historyPhone}
+        jobs={jobs}
       />
     </div>
   );

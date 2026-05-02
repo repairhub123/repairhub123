@@ -184,6 +184,10 @@ class TestLegacyBackwardCompat:
 
     @pytest.mark.asyncio
     async def test_legacy_row_derivation(self):
+        # Skip when Google Sheet is the active source — legacy MongoDB row is bypassed
+        cfg = requests.get(f"{API}/config").json()
+        if cfg.get("sheet_connected"):
+            pytest.skip("Sheet connected — /api/jobs bypasses MongoDB; legacy mongo-row test not applicable")
         import motor.motor_asyncio
         from dotenv import load_dotenv
         from pathlib import Path

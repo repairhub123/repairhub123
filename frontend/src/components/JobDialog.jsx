@@ -10,6 +10,7 @@ import {
 import { addJob, editJob, uploadPhoto, photoUrl, formatINR } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2, Camera, ImagePlus, X } from "lucide-react";
+import { getStoredRole } from "@/hooks/useRole";
 
 const REPAIR_TYPES = [
   "Screen", "Battery", "Charging", "Software",
@@ -138,6 +139,7 @@ export default function JobDialog({ open, onOpenChange, onSaved, job }) {
         amount: Number(f.amount || 0),
         percentage: Number(f.percentage),
         photo: f.photoPath || "",
+        added_by: isEdit ? (job.added_by || "") : (getStoredRole() || ""),
       };
       if (isEdit) {
         await editJob(job.ID, payload);

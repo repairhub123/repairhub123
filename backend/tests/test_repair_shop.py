@@ -22,10 +22,11 @@ def test_root(client):
     assert "sheet_connected" in r.json()
 
 
-def test_config_sheet_disconnected(client):
+def test_config_sheet_connected_or_disconnected(client):
     r = client.get(f"{API}/config")
     assert r.status_code == 200
-    assert r.json().get("sheet_connected") is False
+    assert "sheet_connected" in r.json()
+    assert isinstance(r.json()["sheet_connected"], bool)
 
 
 # ===== Jobs list =====

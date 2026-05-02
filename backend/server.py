@@ -86,7 +86,8 @@ class JobCreate(BaseModel):
     cost: float = 0
     amount: float = 0
     percentage: float = 30
-    photo: Optional[str] = ""  # storage path, e.g. "repair-desk/photos/<uuid>.jpg"
+    photo: Optional[str] = ""
+    added_by: Optional[str] = ""
 
 
 class JobUpdate(BaseModel):
@@ -214,6 +215,7 @@ def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
         "Photo": str(row.get("Photo", "") or ""),
         "technician_share": tech_val,
         "boss_share": boss_val,
+        "added_by": str(row.get("added_by", "") or ""),
     }
 
 
@@ -301,6 +303,7 @@ async def add_job(job: JobCreate):
         "Photo": (job.photo or "").strip(),
         "technician_share": technician_share,
         "boss_share": boss_share,
+        "added_by": (job.added_by or "").strip(),
     }
 
     if SHEET_URL:

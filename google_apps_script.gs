@@ -28,7 +28,8 @@ const COLUMNS = [
   "Percentage", "Share", "Status",
   "received_date", "received_time", "completed_date", "completed_time",
   "Photo",
-  "technician_share", "boss_share"
+  "technician_share", "boss_share",
+  "added_by"
 ];
 const NUMERIC = new Set(["Cost", "Amount", "Profit", "Percentage", "Share", "technician_share", "boss_share"]);
 

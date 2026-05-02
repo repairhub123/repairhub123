@@ -1,11 +1,16 @@
 import React, { useState } from "react";
-import { CheckCircle2, Loader2, Phone, Smartphone, ImageIcon, Pencil } from "lucide-react";
+import {
+  CheckCircle2, Loader2, Phone, Smartphone, ImageIcon, Pencil, Crown, User,
+} from "lucide-react";
 import { photoUrl } from "@/lib/api";
 
-export default function JobCard({ job, onComplete, onEdit, busy, formatINR, display }) {
+export default function JobCard({
+  job, onComplete, onEdit, onOpenCustomer, busy, formatINR, display,
+}) {
   const isCompleted = job.Status === "Completed";
   const [zoom, setZoom] = useState(false);
   const photo = job.Photo ? photoUrl(job.Photo) : "";
+  const addedBy = (job.added_by || "").trim();
 
   return (
     <div className="job" data-testid={`job-card-${job.ID}`}>
@@ -27,13 +32,30 @@ export default function JobCard({ job, onComplete, onEdit, busy, formatINR, disp
         )}
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="job-name" data-testid={`job-name-${job.ID}`}>
-            {display(job.Name)}
+          <div className="job-name-row">
+            <div className="job-name" data-testid={`job-name-${job.ID}`}>
+              {display(job.Name)}
+            </div>
+            {addedBy && (
+              <span
+                className={`added-pill ${addedBy === "Boss" ? "boss" : "tech"}`}
+                data-testid={`added-by-${job.ID}`}
+                title={`Added by ${addedBy}`}
+              >
+                {addedBy === "Boss" ? <Crown size={10} /> : <User size={10} />}
+                {addedBy}
+              </span>
+            )}
           </div>
-          <div className="job-phone">
+          <button
+            type="button"
+            className="job-phone linkish"
+            onClick={() => onOpenCustomer && onOpenCustomer(job.Phone)}
+            data-testid={`job-phone-${job.ID}`}
+          >
             <Phone size={11} style={{ display: "inline", marginRight: 4 }} />
             {display(job.Phone)}
-          </div>
+          </button>
           <div className="job-model">
             <Smartphone size={12} style={{ display: "inline", marginRight: 6 }} />
             {display(job.Model)}
@@ -60,29 +82,21 @@ export default function JobCard({ job, onComplete, onEdit, busy, formatINR, disp
         </div>
       </div>
 
-      {/* Finances — Amount / Cost / Profit */}
       <div className="grid-3 fin-row">
         <div className="cell">
           <div className="k">Amount</div>
-          <div className="v" data-testid={`job-amount-${job.ID}`}>
-            {formatINR(job.Amount)}
-          </div>
+          <div className="v" data-testid={`job-amount-${job.ID}`}>{formatINR(job.Amount)}</div>
         </div>
         <div className="cell">
           <div className="k">Cost</div>
-          <div className="v" data-testid={`job-cost-${job.ID}`}>
-            {formatINR(job.Cost)}
-          </div>
+          <div className="v" data-testid={`job-cost-${job.ID}`}>{formatINR(job.Cost)}</div>
         </div>
         <div className="cell">
           <div className="k">Profit</div>
-          <div className="v profit" data-testid={`job-profit-${job.ID}`}>
-            {formatINR(job.Profit)}
-          </div>
+          <div className="v profit" data-testid={`job-profit-${job.ID}`}>{formatINR(job.Profit)}</div>
         </div>
       </div>
 
-      {/* Earnings split — Technician / Boss */}
       <div className="split-row">
         <div className="split-cell tech" data-testid={`job-tech-${job.ID}`}>
           <div className="k">Technician ({job.Percentage || 30}%)</div>

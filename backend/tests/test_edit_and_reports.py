@@ -50,9 +50,9 @@ def test_list_jobs_returns_18_fields(client):
     assert isinstance(arr, list) and len(arr) >= 1
     expected = {"ID","Name","Phone","Model","Work","Cost","Amount","Profit","Percentage",
                 "Share","Status","received_date","received_time","completed_date","completed_time","Photo",
-                "technician_share","boss_share"}
+                "technician_share","boss_share","added_by"}
     assert set(arr[0].keys()) == expected
-    assert len(arr[0].keys()) == 18
+    assert len(arr[0].keys()) == 19
 
 
 # ===== Edit Job: all editable fields =====
