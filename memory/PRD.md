@@ -19,19 +19,17 @@ ID, Name, Phone, Model, Work, Cost, Amount, Profit, Percentage, Share, Status, r
 - `GET  /api/config` — `{ sheet_connected: bool }`
 
 ## Implemented (Feb 2026)
-- ✅ Add Job dialog: multi-select repair type chips, description, cost, amount, 30%/40% share
-- ✅ **Edit Job** via pencil on each card — reuses the dialog in edit mode, recomputes Profit/Share server-side, preserves status & timestamps
-- ✅ **Reports screen** — period chips (Today / Week / Month / All), KPI grid (Revenue, Cost, Profit, My Share, Jobs, Pending/Completed), recent-5 list; client-side aggregation by `received_date`
-- ✅ Customer phone photo via Camera/Gallery (Emergent Object Storage), thumbnail + lightbox
-- ✅ Auto Profit = Amount − Cost, Share = Profit × %/100
-- ✅ Auto received_date/time (IST), Status=Pending
-- ✅ Job list with All/Pending/Completed tabs, Search (name/phone/model)
-- ✅ Mark as Completed → POST update → 1s delay → GET refresh
-- ✅ KPIs: Pending, Completed, Total Share (₹)
-- ✅ Dark UI with acid-lime accent, ₹ Indian Rupee formatting
-- ✅ Name preserved exactly, "N/A" for missing fields
-- ✅ Google Apps Script (generic update handler); MongoDB fallback when URL unset
-- ✅ Sheet schema: 15 strict columns + Photo (column 16, additive)
+- ✅ **Full earnings distribution** — `technician_share` & `boss_share` computed on every add/update. Technician = Profit × %, Boss = Profit − Technician. Additive columns 17 & 18, original 15 + Photo preserved.
+- ✅ **Dashboard (Reports)** — 4 sections: Business Summary (Revenue/Cost/Profit/Jobs), Boss Section (Total Boss Share), Technician Section (Total Technician Share), Completed Jobs Only (Revenue/Profit/Boss/Tech). Period chips Today/Week/Month/All.
+- ✅ **Color-coded job card** — Amount, Cost, Profit (green), Technician (orange), Boss (blue); status badge; received/completed timestamps.
+- ✅ Top Jobs-page KPIs: Pending, Completed, Profit (done), Boss Share, Technician Share — all completed-only.
+- ✅ Edit Job via pencil (re-uses dialog, recomputes earnings).
+- ✅ Customer phone photo via Camera/Gallery, thumbnail + lightbox.
+- ✅ Add Job dialog: multi-select repair types, description, cost, amount, 30%/40% share (0% also valid now), live Profit/Technician/Boss preview.
+- ✅ Search (name/phone/model), All/Pending/Completed tabs.
+- ✅ Mark as Completed → POST update → 1s delay → GET refresh.
+- ✅ Dark UI, ₹ Indian Rupee formatting, "N/A" fallback, name preserved exactly.
+- ✅ Google Apps Script with additive auto-migration (18 columns); MongoDB fallback when URL unset.
 
 ## Backlog / Next
 - P1: Edit job (amount/cost corrections)

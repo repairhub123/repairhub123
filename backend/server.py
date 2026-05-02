@@ -222,7 +222,7 @@ async def add_job(job: JobCreate):
     job_id = str(uuid.uuid4())[:8].upper()
     cost = to_num(job.cost)
     amount = to_num(job.amount)
-    percentage = to_num(job.percentage) or 30
+    percentage = to_num(job.percentage) if job.percentage is not None else 30
     profit = amount - cost
     technician_share = round(profit * (percentage / 100.0), 2)
     boss_share = round(profit - technician_share, 2)
