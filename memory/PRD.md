@@ -20,19 +20,18 @@ ID, Name, Phone, Model, Work, Cost, Amount, Profit, Percentage, Share, Status, r
 
 ## Implemented (Feb 2026)
 - ✅ Add Job dialog: multi-select repair type chips, description, cost, amount, 30%/40% share
-- ✅ **Customer phone photo** via Camera or Gallery (Emergent Object Storage), thumbnail on job card, tap to zoom lightbox
-- ✅ Auto Profit = Amount − Cost, Share = Profit × %/100, live preview in dialog
+- ✅ **Edit Job** via pencil on each card — reuses the dialog in edit mode, recomputes Profit/Share server-side, preserves status & timestamps
+- ✅ **Reports screen** — period chips (Today / Week / Month / All), KPI grid (Revenue, Cost, Profit, My Share, Jobs, Pending/Completed), recent-5 list; client-side aggregation by `received_date`
+- ✅ Customer phone photo via Camera/Gallery (Emergent Object Storage), thumbnail + lightbox
+- ✅ Auto Profit = Amount − Cost, Share = Profit × %/100
 - ✅ Auto received_date/time (IST), Status=Pending
-- ✅ Job list with All/Pending/Completed tabs
-- ✅ Search (name/phone/model)
-- ✅ Mark as Completed button → POST update → 1s delay → GET refresh
-- ✅ KPIs: Pending count, Completed count, Total Share (₹)
-- ✅ Dark UI with acid-lime accent, Indian Rupee formatting (₹1,200)
-- ✅ "N/A" for missing fields
-- ✅ Name preserved exactly (no "Customer" fallback)
-- ✅ Google Apps Script — paste & deploy; backend picks up via `GOOGLE_SHEET_WEBAPP_URL`
-- ✅ MongoDB fallback so app is usable from day 1
-- ✅ Sheet schema: 15 strict columns + Photo as additive column 16 (no reorder/rename)
+- ✅ Job list with All/Pending/Completed tabs, Search (name/phone/model)
+- ✅ Mark as Completed → POST update → 1s delay → GET refresh
+- ✅ KPIs: Pending, Completed, Total Share (₹)
+- ✅ Dark UI with acid-lime accent, ₹ Indian Rupee formatting
+- ✅ Name preserved exactly, "N/A" for missing fields
+- ✅ Google Apps Script (generic update handler); MongoDB fallback when URL unset
+- ✅ Sheet schema: 15 strict columns + Photo (column 16, additive)
 
 ## Backlog / Next
 - P1: Edit job (amount/cost corrections)
