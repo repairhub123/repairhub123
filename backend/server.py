@@ -124,6 +124,61 @@ def to_num(v: Any) -> float:
         return 0.0
 
 
+_ISO_DT_RE = __import__("re").compile(r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$")
+
+
+def _parse_iso_to_ist(s: str) -> Optional[datetime]:
+    """Parse an ISO datetime string coming from Google Sheets and return an IST-aware datetime.
+    Google Sheets stores date/time cell values as Date objects; when serialized they come as
+    UTC-based ISO strings (ending in 'Z'). We shift them into IST so the user-facing date/time
+    matches what was written."""
+    if not s:
+        return None
+    m = _ISO_DT_RE.match(s)
+    if not m:
+        return None
+    try:
+        # Normalise to Python-parsable ISO with explicit Z handling
+        base = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(base)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+        return dt.astimezone(IST)
+    except (ValueError, TypeError):
+        return None
+
+
+def normalize_date(v: Any) -> str:
+    """Accepts plain 'YYYY-MM-DD' or ISO datetime (from Google Sheet date cells) →
+    returns plain 'YYYY-MM-DD' in IST. Empty/None → ''."""
+    if v is None or v == "":
+        return ""
+    s = str(v).strip()
+    if not s:
+        return ""
+    ist_dt = _parse_iso_to_ist(s)
+    if ist_dt is not None:
+        return ist_dt.strftime("%Y-%m-%d")
+    # Already a plain date string
+    return s[:10] if len(s) >= 10 and s[4] == "-" and s[7] == "-" else s
+
+
+def normalize_time(v: Any) -> str:
+    """Accepts 'HH:MM[:SS]' or ISO datetime (from Google Sheet time cells, base 1899-12-30) →
+    returns 'HH:MM:SS' in IST."""
+    if v is None or v == "":
+        return ""
+    s = str(v).strip()
+    if not s:
+        return ""
+    ist_dt = _parse_iso_to_ist(s)
+    if ist_dt is not None:
+        return ist_dt.strftime("%H:%M:%S")
+    if len(s) == 5 and s[2] == ":":
+        return s + ":00"
+    return s
+
+
 def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
     """
     Ensure every job has the 15 strict fields + Photo (col 16) +
@@ -152,10 +207,10 @@ def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
         "Percentage": to_num(row.get("Percentage")),
         "Share": share,
         "Status": str(row.get("Status", "") or "Pending"),
-        "received_date": str(row.get("received_date", "") or ""),
-        "received_time": str(row.get("received_time", "") or ""),
-        "completed_date": str(row.get("completed_date", "") or ""),
-        "completed_time": str(row.get("completed_time", "") or ""),
+        "received_date": normalize_date(row.get("received_date")),
+        "received_time": normalize_time(row.get("received_time")),
+        "completed_date": normalize_date(row.get("completed_date")),
+        "completed_time": normalize_time(row.get("completed_time")),
         "Photo": str(row.get("Photo", "") or ""),
         "technician_share": tech_val,
         "boss_share": boss_val,
