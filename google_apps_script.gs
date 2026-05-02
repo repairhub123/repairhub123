@@ -21,9 +21,10 @@ const COLUMNS = [
   "ID", "Name", "Phone", "Model", "Work", "Cost", "Amount", "Profit",
   "Percentage", "Share", "Status",
   "received_date", "received_time", "completed_date", "completed_time",
-  "Photo"
+  "Photo",
+  "technician_share", "boss_share"
 ];
-const NUMERIC = new Set(["Cost", "Amount", "Profit", "Percentage", "Share"]);
+const NUMERIC = new Set(["Cost", "Amount", "Profit", "Percentage", "Share", "technician_share", "boss_share"]);
 
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -33,11 +34,13 @@ function getSheet_() {
     sh.getRange(1, 1, 1, COLUMNS.length).setValues([COLUMNS]);
     sh.setFrozenRows(1);
   } else {
-    // Ensure Photo column exists (backward-compatible additive migration)
+    // Additive migration: ensure all expected columns exist at the end
     const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-    if (header.indexOf("Photo") === -1) {
-      sh.getRange(1, header.length + 1).setValue("Photo");
-    }
+    COLUMNS.forEach(c => {
+      if (header.indexOf(c) === -1) {
+        sh.getRange(1, sh.getLastColumn() + 1).setValue(c);
+      }
+    });
   }
   return sh;
 }

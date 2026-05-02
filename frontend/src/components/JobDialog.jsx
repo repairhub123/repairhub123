@@ -336,11 +336,15 @@ export default function JobDialog({ open, onOpenChange, onSaved, job }) {
           <div className="calc" data-testid="calc-preview">
             <div className="cell">
               <div className="k">Profit</div>
-              <div className="v">{formatINR(profit)}</div>
+              <div className="v profit">{formatINR(profit)}</div>
             </div>
             <div className="cell">
-              <div className="k">Share ({f.percentage}%)</div>
-              <div className="v accent">{formatINR(share)}</div>
+              <div className="k">Technician ({f.percentage}%)</div>
+              <div className="v tech">{formatINR(share)}</div>
+            </div>
+            <div className="cell">
+              <div className="k">Boss</div>
+              <div className="v boss">{formatINR(profit - share)}</div>
             </div>
           </div>
 

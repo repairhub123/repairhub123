@@ -60,18 +60,37 @@ export default function JobCard({ job, onComplete, onEdit, busy, formatINR, disp
         </div>
       </div>
 
-      <div className="grid-3">
+      {/* Finances — Amount / Cost / Profit */}
+      <div className="grid-3 fin-row">
         <div className="cell">
           <div className="k">Amount</div>
-          <div className="v">{formatINR(job.Amount)}</div>
+          <div className="v" data-testid={`job-amount-${job.ID}`}>
+            {formatINR(job.Amount)}
+          </div>
+        </div>
+        <div className="cell">
+          <div className="k">Cost</div>
+          <div className="v" data-testid={`job-cost-${job.ID}`}>
+            {formatINR(job.Cost)}
+          </div>
         </div>
         <div className="cell">
           <div className="k">Profit</div>
-          <div className="v">{formatINR(job.Profit)}</div>
+          <div className="v profit" data-testid={`job-profit-${job.ID}`}>
+            {formatINR(job.Profit)}
+          </div>
         </div>
-        <div className="cell">
-          <div className="k">Share</div>
-          <div className="v accent">{formatINR(job.Share)}</div>
+      </div>
+
+      {/* Earnings split — Technician / Boss */}
+      <div className="split-row">
+        <div className="split-cell tech" data-testid={`job-tech-${job.ID}`}>
+          <div className="k">Technician ({job.Percentage || 30}%)</div>
+          <div className="v">{formatINR(job.technician_share)}</div>
+        </div>
+        <div className="split-cell boss" data-testid={`job-boss-${job.ID}`}>
+          <div className="k">Boss</div>
+          <div className="v">{formatINR(job.boss_share)}</div>
         </div>
       </div>
 

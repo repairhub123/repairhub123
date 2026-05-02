@@ -125,7 +125,21 @@ def to_num(v: Any) -> float:
 
 
 def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensure every job has all 15 strict fields + optional Photo (column 16, additive)."""
+    """
+    Ensure every job has the 15 strict fields + Photo (col 16) +
+    technician_share (col 17) + boss_share (col 18). All additive — the
+    original 15 column order and names are preserved.
+
+    technician_share is the same value as Share (the existing column);
+    boss_share = Profit - technician_share. Both are recomputed from
+    Profit & Share if the row is missing them (backward compat).
+    """
+    profit = to_num(row.get("Profit"))
+    share = to_num(row.get("Share"))
+    tech = row.get("technician_share")
+    tech_val = to_num(tech) if tech not in (None, "") else share
+    boss = row.get("boss_share")
+    boss_val = to_num(boss) if boss not in (None, "") else round(profit - tech_val, 2)
     return {
         "ID": str(row.get("ID", "") or ""),
         "Name": str(row.get("Name", "") or ""),
@@ -134,15 +148,17 @@ def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
         "Work": str(row.get("Work", "") or ""),
         "Cost": to_num(row.get("Cost")),
         "Amount": to_num(row.get("Amount")),
-        "Profit": to_num(row.get("Profit")),
+        "Profit": profit,
         "Percentage": to_num(row.get("Percentage")),
-        "Share": to_num(row.get("Share")),
+        "Share": share,
         "Status": str(row.get("Status", "") or "Pending"),
         "received_date": str(row.get("received_date", "") or ""),
         "received_time": str(row.get("received_time", "") or ""),
         "completed_date": str(row.get("completed_date", "") or ""),
         "completed_time": str(row.get("completed_time", "") or ""),
         "Photo": str(row.get("Photo", "") or ""),
+        "technician_share": tech_val,
+        "boss_share": boss_val,
     }
 
 
@@ -208,7 +224,8 @@ async def add_job(job: JobCreate):
     amount = to_num(job.amount)
     percentage = to_num(job.percentage) or 30
     profit = amount - cost
-    share = round(profit * (percentage / 100.0), 2)
+    technician_share = round(profit * (percentage / 100.0), 2)
+    boss_share = round(profit - technician_share, 2)
 
     record = {
         "ID": job_id,
@@ -220,13 +237,15 @@ async def add_job(job: JobCreate):
         "Amount": amount,
         "Profit": profit,
         "Percentage": percentage,
-        "Share": share,
+        "Share": technician_share,
         "Status": "Pending",
         "received_date": now_date(),
         "received_time": now_time(),
         "completed_date": "",
         "completed_time": "",
         "Photo": (job.photo or "").strip(),
+        "technician_share": technician_share,
+        "boss_share": boss_share,
     }
 
     if SHEET_URL:
@@ -278,20 +297,23 @@ async def update_job(upd: JobUpdate):
         if v is not None:
             updates[dst] = v.strip() if isinstance(v, str) else v
 
-    # Editable numeric fields — recompute Profit/Share if any changes
+    # Editable numeric fields — recompute Profit/Share + boss_share when any changes
     numeric_changed = any(getattr(upd, k) is not None for k in ("cost", "amount", "percentage"))
     if numeric_changed:
         new_cost = to_num(upd.cost if upd.cost is not None else existing["Cost"])
         new_amount = to_num(upd.amount if upd.amount is not None else existing["Amount"])
         new_pct = to_num(upd.percentage if upd.percentage is not None else existing["Percentage"]) or 30
         new_profit = new_amount - new_cost
-        new_share = round(new_profit * (new_pct / 100.0), 2)
+        new_tech = round(new_profit * (new_pct / 100.0), 2)
+        new_boss = round(new_profit - new_tech, 2)
         updates.update({
             "Cost": new_cost,
             "Amount": new_amount,
             "Percentage": new_pct,
             "Profit": new_profit,
-            "Share": new_share,
+            "Share": new_tech,
+            "technician_share": new_tech,
+            "boss_share": new_boss,
         })
 
     if not updates:

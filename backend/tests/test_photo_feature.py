@@ -89,10 +89,10 @@ def test_job_photo_round_trip(session):
     r = session.post(f"{API}/jobs", json=payload, timeout=30)
     assert r.status_code == 200, r.text
     j = r.json()
-    # 16 fields (15 strict + Photo)
+    # 18 fields (15 strict + Photo + technician_share + boss_share)
     assert "Photo" in j
     assert j["Photo"] == path
-    assert len(j.keys()) == 16
+    assert len(j.keys()) == 18
     job_id = j["ID"]
 
     time.sleep(0.5)
@@ -116,4 +116,4 @@ def test_job_without_photo_still_has_photo_field(session):
     j = r.json()
     assert "Photo" in j
     assert j["Photo"] == ""
-    assert len(j.keys()) == 16
+    assert len(j.keys()) == 18

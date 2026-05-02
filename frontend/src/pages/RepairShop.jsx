@@ -99,8 +99,14 @@ export default function RepairShop() {
   const totals = useMemo(() => {
     const pending = jobs.filter((j) => j.Status !== "Completed").length;
     const completedJobs = jobs.filter((j) => j.Status === "Completed");
-    const totalShare = completedJobs.reduce((s, j) => s + Number(j.Share || 0), 0);
-    return { pending, completed: completedJobs.length, totalShare };
+    const sum = (k) => completedJobs.reduce((s, j) => s + Number(j[k] || 0), 0);
+    return {
+      pending,
+      completed: completedJobs.length,
+      profit: sum("Profit"),
+      boss: sum("boss_share"),
+      technician: sum("technician_share"),
+    };
   }, [jobs]);
 
   return (
@@ -163,9 +169,19 @@ export default function RepairShop() {
               <div className="label">Completed</div>
               <div className="value">{totals.completed}</div>
             </div>
-            <div className="kpi accent" data-testid="kpi-share">
-              <div className="label">Total Share</div>
-              <div className="value">{formatINR(totals.totalShare)}</div>
+            <div className="kpi accent" data-testid="kpi-profit">
+              <div className="label">Profit (done)</div>
+              <div className="value">{formatINR(totals.profit)}</div>
+            </div>
+          </div>
+          <div className="kpis kpis-2" data-testid="kpis-split">
+            <div className="kpi kpi-boss" data-testid="kpi-boss">
+              <div className="label">Boss Share</div>
+              <div className="value">{formatINR(totals.boss)}</div>
+            </div>
+            <div className="kpi kpi-tech" data-testid="kpi-tech">
+              <div className="label">Technician Share</div>
+              <div className="value">{formatINR(totals.technician)}</div>
             </div>
           </div>
 

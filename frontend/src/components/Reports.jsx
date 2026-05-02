@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { formatINR } from "@/lib/api";
-import { TrendingUp, Wallet, Coins, Receipt, Briefcase } from "lucide-react";
+import {
+  TrendingUp, Receipt, Wallet, Briefcase, Coins, User, Crown, CheckCircle2,
+} from "lucide-react";
 
 const PERIODS = [
   { key: "today", label: "Today" },
@@ -11,12 +13,10 @@ const PERIODS = [
 
 function pad(n) { return String(n).padStart(2, "0"); }
 function toISO(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-
 function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 function startOfWeek() {
   const d = startOfToday();
-  const day = d.getDay(); // 0 = Sun
-  const diff = (day + 6) % 7; // Monday as first day
+  const diff = (d.getDay() + 6) % 7;
   d.setDate(d.getDate() - diff);
   return d;
 }
@@ -26,6 +26,20 @@ function inRange(dateStr, fromISO) {
   if (!fromISO) return true;
   const d = (dateStr || "").trim();
   return d && d >= fromISO;
+}
+
+const num = (j, k) => Number(j[k] || 0);
+const sumBy = (list, k) => list.reduce((s, j) => s + num(j, k), 0);
+
+function totalsOf(list) {
+  return {
+    count: list.length,
+    revenue: sumBy(list, "Amount"),
+    cost: sumBy(list, "Cost"),
+    profit: sumBy(list, "Profit"),
+    technician: sumBy(list, "technician_share"),
+    boss: sumBy(list, "boss_share"),
+  };
 }
 
 export default function Reports({ jobs }) {
@@ -38,40 +52,19 @@ export default function Reports({ jobs }) {
     return "";
   }, [period]);
 
-  const stats = useMemo(() => {
-    // Job counts are filtered by received_date (how many new jobs came in)
-    const received = jobs.filter((j) => inRange(j.received_date, fromISO));
-    // Financial KPIs only count Completed jobs, filtered by completed_date (when money realized)
-    const earned = jobs.filter(
+  const { all, completed } = useMemo(() => {
+    const inPeriodByReceived = jobs.filter((j) => inRange(j.received_date, fromISO));
+    const completedInPeriod = jobs.filter(
       (j) => j.Status === "Completed" && inRange(j.completed_date, fromISO)
     );
-    const sum = (list, k) => list.reduce((s, j) => s + Number(j[k] || 0), 0);
-    const pending = received.filter((j) => j.Status !== "Completed").length;
-    const completed = earned.length;
     return {
-      received, earned,
-      count: received.length,
-      pending, completed,
-      revenue: sum(earned, "Amount"),
-      cost: sum(earned, "Cost"),
-      profit: sum(earned, "Profit"),
-      share: sum(earned, "Share"),
+      all: totalsOf(inPeriodByReceived),
+      completed: totalsOf(completedInPeriod),
     };
   }, [jobs, fromISO]);
 
-  const recent = useMemo(
-    () =>
-      [...stats.earned]
-        .sort((a, b) =>
-          (b.completed_date + " " + b.completed_time).localeCompare(
-            a.completed_date + " " + a.completed_time
-          )
-        )
-        .slice(0, 5),
-    [stats.earned]
-  );
-
-  const periodLabel = PERIODS.find((p) => p.key === period)?.label || "";
+  const pending = all.count - jobs
+    .filter((j) => j.Status === "Completed" && inRange(j.received_date, fromISO)).length;
 
   return (
     <div data-testid="reports-screen">
@@ -89,96 +82,122 @@ export default function Reports({ jobs }) {
       </div>
 
       <div className="report-header mono" data-testid="report-range">
-        {fromISO ? `Financials from completed jobs since ${fromISO}` : "All time · completed jobs only"}
+        {fromISO ? `Scope: jobs from ${fromISO} onwards` : "Scope: all time"}
       </div>
 
-      <div className="report-grid" data-testid="report-kpis">
-        <ReportCard
-          icon={<TrendingUp size={16} />}
-          label="Revenue"
-          value={formatINR(stats.revenue)}
-          accent
-          testid="report-revenue"
-        />
-        <ReportCard
-          icon={<Receipt size={16} />}
-          label="Cost"
-          value={formatINR(stats.cost)}
-          testid="report-cost"
-        />
-        <ReportCard
-          icon={<Wallet size={16} />}
-          label="Profit"
-          value={formatINR(stats.profit)}
-          accent
-          testid="report-profit"
-        />
-        <ReportCard
-          icon={<Coins size={16} />}
-          label="My Share"
-          value={formatINR(stats.share)}
-          accent
-          testid="report-share"
-        />
-        <ReportCard
-          icon={<Briefcase size={16} />}
-          label="Jobs"
-          value={stats.count}
-          testid="report-jobs"
-        />
-        <div className="report-card status-split" data-testid="report-status">
-          <div>
-            <div className="k">Pending</div>
-            <div className="v" style={{ color: "var(--warn)" }}>{stats.pending}</div>
-          </div>
-          <div>
-            <div className="k">Completed</div>
-            <div className="v" style={{ color: "var(--ok)" }}>{stats.completed}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="recent-head">
-        <h3>Recent completions — {periodLabel}</h3>
-        <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>
-          top 5
-        </span>
-      </div>
-
-      {recent.length === 0 ? (
-        <div className="empty" data-testid="report-empty">
-          No completed jobs in this period yet.
-        </div>
-      ) : (
-        <div className="recent-list" data-testid="recent-list">
-          {recent.map((j) => (
-            <div className="recent-row" key={j.ID} data-testid={`recent-${j.ID}`}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="recent-name">{j.Name || "N/A"}</div>
-                <div className="recent-sub mono">
-                  {j.Model || "—"} · done {j.completed_date} {j.completed_time}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="recent-amount">{formatINR(j.Amount)}</div>
-                <div className="recent-share accent">{formatINR(j.Share)}</div>
-              </div>
+      {/* A — BUSINESS SUMMARY */}
+      <Section title="Business Summary" icon={<Briefcase size={14} />} testid="section-business">
+        <div className="report-grid">
+          <ReportCard
+            icon={<TrendingUp size={16} />} label="Revenue"
+            value={formatINR(all.revenue)} testid="report-revenue"
+          />
+          <ReportCard
+            icon={<Receipt size={16} />} label="Cost"
+            value={formatINR(all.cost)} testid="report-cost"
+          />
+          <ReportCard
+            icon={<Wallet size={16} />} label="Profit" accent="profit"
+            value={formatINR(all.profit)} testid="report-profit"
+          />
+          <div className="report-card status-split" data-testid="report-status">
+            <div>
+              <div className="k">Jobs</div>
+              <div className="v">{all.count}</div>
             </div>
-          ))}
+            <div>
+              <div className="k">Pending</div>
+              <div className="v" style={{ color: "var(--warn)" }}>{pending}</div>
+            </div>
+          </div>
         </div>
-      )}
+      </Section>
+
+      {/* B — BOSS */}
+      <Section title="Boss Section" icon={<Crown size={14} />} testid="section-boss">
+        <BigKPI
+          color="boss"
+          label="Total Boss Share"
+          value={formatINR(all.boss)}
+          sub={`from ${all.count} job${all.count === 1 ? "" : "s"} in period`}
+          testid="report-boss-share"
+        />
+      </Section>
+
+      {/* C — TECHNICIAN */}
+      <Section title="Technician Section" icon={<User size={14} />} testid="section-technician">
+        <BigKPI
+          color="tech"
+          label="Total Technician Share"
+          value={formatINR(all.technician)}
+          sub={`from ${all.count} job${all.count === 1 ? "" : "s"} in period`}
+          testid="report-tech-share"
+        />
+      </Section>
+
+      {/* D — COMPLETED ONLY */}
+      <Section
+        title="Completed Jobs Only"
+        icon={<CheckCircle2 size={14} />}
+        testid="section-completed"
+        subtitle={`${completed.count} completed · based on completion date`}
+      >
+        <div className="report-grid">
+          <ReportCard
+            icon={<TrendingUp size={16} />} label="Revenue"
+            value={formatINR(completed.revenue)} testid="completed-revenue"
+          />
+          <ReportCard
+            icon={<Wallet size={16} />} label="Profit" accent="profit"
+            value={formatINR(completed.profit)} testid="completed-profit"
+          />
+          <ReportCard
+            icon={<Crown size={16} />} label="Boss Share" accent="boss"
+            value={formatINR(completed.boss)} testid="completed-boss"
+          />
+          <ReportCard
+            icon={<Coins size={16} />} label="Technician" accent="tech"
+            value={formatINR(completed.technician)} testid="completed-tech"
+          />
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function Section({ title, icon, subtitle, testid, children }) {
+  return (
+    <div className="report-section" data-testid={testid}>
+      <div className="section-head">
+        <div className="section-title">
+          <span className="section-icon">{icon}</span>
+          <h3>{title}</h3>
+        </div>
+        {subtitle && <span className="section-sub mono">{subtitle}</span>}
+      </div>
+      {children}
     </div>
   );
 }
 
 function ReportCard({ icon, label, value, accent, testid }) {
   return (
-    <div className={`report-card ${accent ? "accent" : ""}`} data-testid={testid}>
+    <div className={`report-card ${accent || ""}`} data-testid={testid}>
       <div className="report-top">
         <span className="report-icon">{icon}</span>
         <span className="k">{label}</span>
       </div>
       <div className="v">{value}</div>
+    </div>
+  );
+}
+
+function BigKPI({ color, label, value, sub, testid }) {
+  return (
+    <div className={`big-kpi ${color}`} data-testid={testid}>
+      <div className="k">{label}</div>
+      <div className="v">{value}</div>
+      <div className="sub mono">{sub}</div>
     </div>
   );
 }

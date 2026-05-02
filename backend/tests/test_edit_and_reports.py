@@ -40,8 +40,8 @@ def _get_job(client, job_id):
     return None
 
 
-# ===== 16 normalized fields on GET =====
-def test_list_jobs_returns_16_fields(client):
+# ===== 18 normalized fields on GET (15 + Photo + technician_share + boss_share) =====
+def test_list_jobs_returns_18_fields(client):
     _add(client, name="TEST_FieldsCheck")
     time.sleep(0.7)
     r = client.get(f"{API}/jobs")
@@ -49,9 +49,10 @@ def test_list_jobs_returns_16_fields(client):
     arr = r.json()
     assert isinstance(arr, list) and len(arr) >= 1
     expected = {"ID","Name","Phone","Model","Work","Cost","Amount","Profit","Percentage",
-                "Share","Status","received_date","received_time","completed_date","completed_time","Photo"}
+                "Share","Status","received_date","received_time","completed_date","completed_time","Photo",
+                "technician_share","boss_share"}
     assert set(arr[0].keys()) == expected
-    assert len(arr[0].keys()) == 16
+    assert len(arr[0].keys()) == 18
 
 
 # ===== Edit Job: all editable fields =====
