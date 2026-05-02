@@ -98,9 +98,9 @@ export default function RepairShop() {
 
   const totals = useMemo(() => {
     const pending = jobs.filter((j) => j.Status !== "Completed").length;
-    const completed = jobs.filter((j) => j.Status === "Completed").length;
-    const totalShare = jobs.reduce((s, j) => s + Number(j.Share || 0), 0);
-    return { pending, completed, totalShare };
+    const completedJobs = jobs.filter((j) => j.Status === "Completed");
+    const totalShare = completedJobs.reduce((s, j) => s + Number(j.Share || 0), 0);
+    return { pending, completed: completedJobs.length, totalShare };
   }, [jobs]);
 
   return (

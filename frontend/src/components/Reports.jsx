@@ -22,10 +22,10 @@ function startOfWeek() {
 }
 function startOfMonth() { const d = startOfToday(); d.setDate(1); return d; }
 
-function inRange(job, fromISO) {
+function inRange(dateStr, fromISO) {
   if (!fromISO) return true;
-  const rd = (job.received_date || "").trim();
-  return rd && rd >= fromISO;
+  const d = (dateStr || "").trim();
+  return d && d >= fromISO;
 }
 
 export default function Reports({ jobs }) {
@@ -39,32 +39,36 @@ export default function Reports({ jobs }) {
   }, [period]);
 
   const stats = useMemo(() => {
-    const filtered = jobs.filter((j) => inRange(j, fromISO));
-    const sum = (k) => filtered.reduce((s, j) => s + Number(j[k] || 0), 0);
-    const pending = filtered.filter((j) => j.Status !== "Completed").length;
-    const completed = filtered.filter((j) => j.Status === "Completed").length;
+    // Job counts are filtered by received_date (how many new jobs came in)
+    const received = jobs.filter((j) => inRange(j.received_date, fromISO));
+    // Financial KPIs only count Completed jobs, filtered by completed_date (when money realized)
+    const earned = jobs.filter(
+      (j) => j.Status === "Completed" && inRange(j.completed_date, fromISO)
+    );
+    const sum = (list, k) => list.reduce((s, j) => s + Number(j[k] || 0), 0);
+    const pending = received.filter((j) => j.Status !== "Completed").length;
+    const completed = earned.length;
     return {
-      list: filtered,
-      count: filtered.length,
-      pending,
-      completed,
-      revenue: sum("Amount"),
-      cost: sum("Cost"),
-      profit: sum("Profit"),
-      share: sum("Share"),
+      received, earned,
+      count: received.length,
+      pending, completed,
+      revenue: sum(earned, "Amount"),
+      cost: sum(earned, "Cost"),
+      profit: sum(earned, "Profit"),
+      share: sum(earned, "Share"),
     };
   }, [jobs, fromISO]);
 
   const recent = useMemo(
     () =>
-      [...stats.list]
+      [...stats.earned]
         .sort((a, b) =>
-          (b.received_date + " " + b.received_time).localeCompare(
-            a.received_date + " " + a.received_time
+          (b.completed_date + " " + b.completed_time).localeCompare(
+            a.completed_date + " " + a.completed_time
           )
         )
         .slice(0, 5),
-    [stats.list]
+    [stats.earned]
   );
 
   const periodLabel = PERIODS.find((p) => p.key === period)?.label || "";
@@ -85,7 +89,7 @@ export default function Reports({ jobs }) {
       </div>
 
       <div className="report-header mono" data-testid="report-range">
-        {fromISO ? `From ${fromISO} → today` : "All time"}
+        {fromISO ? `Financials from completed jobs since ${fromISO}` : "All time · completed jobs only"}
       </div>
 
       <div className="report-grid" data-testid="report-kpis">
@@ -135,7 +139,7 @@ export default function Reports({ jobs }) {
       </div>
 
       <div className="recent-head">
-        <h3>Recent — {periodLabel}</h3>
+        <h3>Recent completions — {periodLabel}</h3>
         <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>
           top 5
         </span>
@@ -143,7 +147,7 @@ export default function Reports({ jobs }) {
 
       {recent.length === 0 ? (
         <div className="empty" data-testid="report-empty">
-          No jobs in this period yet.
+          No completed jobs in this period yet.
         </div>
       ) : (
         <div className="recent-list" data-testid="recent-list">
@@ -152,7 +156,7 @@ export default function Reports({ jobs }) {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="recent-name">{j.Name || "N/A"}</div>
                 <div className="recent-sub mono">
-                  {j.Model || "—"} · {j.received_date} {j.received_time}
+                  {j.Model || "—"} · done {j.completed_date} {j.completed_time}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
