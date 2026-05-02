@@ -4,7 +4,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({
-  baseURL: API,
+  baseURL:"https://script.google.com/macros/s/AKfycbzdecNk1YJGoYxdguCazxv2r104Xnwg9UaketjQmr4QoWsUvIeHqFDXXOiKz7HtUtg/exec",
   headers: { "Content-Type": "application/json" },
 });
 
