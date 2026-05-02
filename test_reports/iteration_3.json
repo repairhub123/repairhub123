@@ -1,0 +1,37 @@
+{
+  "summary": "Verified P1 Edit-Job flow (backend + frontend) and the new Reports screen. Backend: 20/20 pytest cases pass (7 new edit/reports tests + 6 photo + 7 base repair-shop). POST /api/jobs/update now accepts all editable fields (name, phone, model, work, cost, amount, percentage, photo); server recomputes Profit=amount-cost and Share=Profit*pct/100 whenever any numeric field is patched; returns {ok:true, id, updated:[...]} listing the server-side keys changed (incl. recomputed Profit/Share). Non-existent id returns 404 {detail:'Job not found'}. Regression: {id,status:'Completed'} still marks completed with IST completed_date/completed_time auto-stamped. No-op patch with only {id} returns {ok:true, unchanged:true}. Editing a completed job preserves Status, received_*, and completed_* timestamps. GET /api/jobs still returns exactly 16 normalized keys. Frontend (mobile 390x844): pencil button renders on each card (btn-edit-<ID>); dialog opens pre-filled with Name/Phone/Model/Cost/Amount and correct repair-type chips parsed from Work (Screen+Battery active on seeded job). Changing Amount from 2000→3500 saves and card refreshes within ~2s to show Amount ₹3,500, Profit ₹3,000, Share ₹900. view-jobs/view-reports switch works. Reports screen renders period-today/week/month/all chips, report-revenue/cost/profit/share/jobs/status KPI grid, and recent-list. Switching periods re-aggregates correctly (Today == All since all seeded jobs are IST-today).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "JobCard / Reports on 390x844", "issues": ["'Made with Emergent' badge still overlaps bottom-right of the lowest job card and FAB area (pre-existing, documented in iteration 2). Consider raising FAB/CTA bottom margin above the badge."]},
+      {"screen": "Reports 'Today' label", "issues": ["Period range header reads 'From YYYY-MM-DD → today' for all non-'all' periods; for 'today' showing just the date would be clearer. Cosmetic only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_edit_and_reports.py",
+    "/app/backend/tests/test_repair_shop.py",
+    "/app/backend/tests/test_photo_feature.py",
+    "/app/test_reports/pytest/edit_reports_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py update_job(): when SHEET_URL is set, we call sheet_get() to locate the existing record — this is an extra upstream round-trip per update. If/when Sheet mode is enabled, consider caching or changing Apps Script to return the current row on update to avoid double-fetch.",
+    "server.py update_job(): 'numeric_changed' block always sets Cost/Amount/Percentage in the updates payload even if only one numeric field was patched. Harmless for MongoDB, but on Sheet mode it writes unchanged columns back unnecessarily.",
+    "Reports.jsx inRange() uses string comparison on received_date (ISO YYYY-MM-DD). This is correct only while stamps are IST strings; if a row ever has an empty received_date (legacy) it is excluded from 'All Time' via the implicit && rd check — but ternary in fromISO makes 'all' return '' so all rows pass. OK, but add a unit note: 'all' keeps rows even without received_date while 'today/week/month' silently drop them.",
+    "RepairShop.jsx: syncAfterWrite has a hard-coded 1000ms delay. Fine for MongoDB local mode; for Sheet mode there can be eventual-consistency >1s. Consider polling until the updated record is visible (max 3 tries) instead of a fixed sleep.",
+    "JobDialog.jsx parseWork() only matches exact REPAIR_TYPES strings; if user ever changes the chip labels (e.g., capitalization or a typo in storage), chips won't pre-select and everything falls into description. Consider case-insensitive match plus trimming.",
+    "JobDialog.jsx does not disable the Save button while the form is in a pristine state on edit; this is fine UX-wise but an unchanged save still hits POST /api/jobs/update (returns unchanged:true). Minor network noise — skip call if no diff vs job prop.",
+    "Reports.jsx: 'My Share' KPI sums Share for all jobs in the period including Pending ones. If the product intent is realised income, switch to Completed-only for Profit/Share. Flag to main agent — business decision."
+  ],
+  "updated_files": ["/app/backend/tests/test_edit_and_reports.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Created TEST_-prefixed jobs in MongoDB during pytest (edit/numeric/complete/unchanged suites) + one TEST_UIEdit job seeded via the UI test to exercise the edit flow. Safe to drop test_database.jobs and anything with Name starting with 'TEST_'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Edit endpoint is unified at POST /api/jobs/update: {id, ...anyFields}. Status-only call still works (Mark Completed). Profit/Share are recomputed only when cost/amount/percentage is present in the patch. Frontend edit pencil = btn-edit-<ID>; dialog testid = job-dialog; period chips = period-today/week/month/all; KPIs = report-revenue/cost/profit/share/jobs/status; recent list = recent-list with per-row testid recent-<ID>. Sheet URL still empty → MongoDB fallback expected. Use /app/backend/tests/test_edit_and_reports.py as regression for this iteration.",
+  "rca of the issue": "No defects found for Edit flow or Reports view."
+}

@@ -1,25 +1,24 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Plus, Search, Wrench, CheckCircle2, Loader2 } from "lucide-react";
+import { Plus, Search, Wrench, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  fetchJobs,
-  markCompleted,
-  fetchConfig,
-  formatINR,
-  display,
-  delay,
+  fetchJobs, markCompleted, fetchConfig,
+  formatINR, display, delay,
 } from "@/lib/api";
-import AddJobDialog from "@/components/AddJobDialog";
+import JobDialog from "@/components/JobDialog";
 import JobCard from "@/components/JobCard";
+import Reports from "@/components/Reports";
 
 const TABS = ["All", "Pending", "Completed"];
 
 export default function RepairShop() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("jobs"); // jobs | reports
   const [tab, setTab] = useState("All");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState(null);
   const [sheetConnected, setSheetConnected] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
@@ -39,7 +38,7 @@ export default function RepairShop() {
       try {
         const cfg = await fetchConfig();
         setSheetConnected(cfg.sheet_connected);
-      } catch (e) {
+      } catch {
         setSheetConnected(false);
       }
       await refresh();
@@ -48,12 +47,13 @@ export default function RepairShop() {
   }, [refresh]);
 
   const syncAfterWrite = async () => {
-    await delay(1000); // wait 1 second per spec
+    await delay(1000);
     await refresh();
   };
 
-  const handleAdded = async () => {
-    toast.success("Job added");
+  const handleSaved = async () => {
+    toast.success(editingJob ? "Job updated" : "Job added");
+    setEditingJob(null);
     await syncAfterWrite();
   };
 
@@ -63,12 +63,15 @@ export default function RepairShop() {
       await markCompleted(id);
       toast.success("Marked completed");
       await syncAfterWrite();
-    } catch (e) {
+    } catch {
       toast.error("Update failed");
     } finally {
       setBusyId(null);
     }
   };
+
+  const openAdd = () => { setEditingJob(null); setDialogOpen(true); };
+  const openEdit = (job) => { setEditingJob(job); setDialogOpen(true); };
 
   const filtered = useMemo(() => {
     let list = jobs;
@@ -83,7 +86,6 @@ export default function RepairShop() {
           (j.Model || "").toLowerCase().includes(q)
       );
     }
-    // Sort: Pending first, newest received first
     return [...list].sort((a, b) => {
       if (a.Status !== b.Status) return a.Status === "Completed" ? 1 : -1;
       return (
@@ -133,88 +135,117 @@ export default function RepairShop() {
         </div>
       )}
 
-      <div className="kpis" data-testid="kpis">
-        <div className="kpi warn" data-testid="kpi-pending">
-          <div className="label">Pending</div>
-          <div className="value">{totals.pending}</div>
-        </div>
-        <div className="kpi" data-testid="kpi-completed">
-          <div className="label">Completed</div>
-          <div className="value">{totals.completed}</div>
-        </div>
-        <div className="kpi accent" data-testid="kpi-share">
-          <div className="label">Total Share</div>
-          <div className="value">{formatINR(totals.totalShare)}</div>
-        </div>
+      <div className="view-switch" data-testid="view-switch">
+        <button
+          data-testid="view-jobs"
+          className={`vbtn ${view === "jobs" ? "active" : ""}`}
+          onClick={() => setView("jobs")}
+        >
+          Jobs
+        </button>
+        <button
+          data-testid="view-reports"
+          className={`vbtn ${view === "reports" ? "active" : ""}`}
+          onClick={() => setView("reports")}
+        >
+          Reports
+        </button>
       </div>
 
-      <div style={{ position: "relative" }}>
-        <Search
-          size={16}
-          style={{
-            position: "absolute",
-            left: 14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: "var(--muted)",
-          }}
-        />
-        <input
-          data-testid="search-input"
-          className="search"
-          style={{ paddingLeft: 40 }}
-          placeholder="Search by name, phone or model"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      {view === "jobs" ? (
+        <>
+          <div className="kpis" data-testid="kpis">
+            <div className="kpi warn" data-testid="kpi-pending">
+              <div className="label">Pending</div>
+              <div className="value">{totals.pending}</div>
+            </div>
+            <div className="kpi" data-testid="kpi-completed">
+              <div className="label">Completed</div>
+              <div className="value">{totals.completed}</div>
+            </div>
+            <div className="kpi accent" data-testid="kpi-share">
+              <div className="label">Total Share</div>
+              <div className="value">{formatINR(totals.totalShare)}</div>
+            </div>
+          </div>
 
-      <div className="tabs" role="tablist" data-testid="tabs">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            data-testid={`tab-${t.toLowerCase()}`}
-            className={`tab ${tab === t ? "active" : ""}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="empty" data-testid="loading">
-          <Loader2 className="spin" style={{ display: "inline" }} /> Loading…
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="empty" data-testid="empty-state">
-          No jobs here yet. Tap the + button to add one.
-        </div>
-      ) : (
-        <div className="list" data-testid="job-list">
-          {filtered.map((j) => (
-            <JobCard
-              key={j.ID}
-              job={j}
-              onComplete={handleComplete}
-              busy={busyId === j.ID}
-              formatINR={formatINR}
-              display={display}
+          <div style={{ position: "relative" }}>
+            <Search
+              size={16}
+              style={{
+                position: "absolute", left: 14, top: "50%",
+                transform: "translateY(-50%)", color: "var(--muted)",
+              }}
             />
-          ))}
-        </div>
+            <input
+              data-testid="search-input"
+              className="search"
+              style={{ paddingLeft: 40 }}
+              placeholder="Search by name, phone or model"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="tabs" role="tablist" data-testid="tabs">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                data-testid={`tab-${t.toLowerCase()}`}
+                className={`tab ${tab === t ? "active" : ""}`}
+                onClick={() => setTab(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="empty" data-testid="loading">
+              <Loader2 className="spin" style={{ display: "inline" }} /> Loading…
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="empty" data-testid="empty-state">
+              No jobs here yet. Tap the + button to add one.
+            </div>
+          ) : (
+            <div className="list" data-testid="job-list">
+              {filtered.map((j) => (
+                <JobCard
+                  key={j.ID}
+                  job={j}
+                  onComplete={handleComplete}
+                  onEdit={openEdit}
+                  busy={busyId === j.ID}
+                  formatINR={formatINR}
+                  display={display}
+                />
+              ))}
+            </div>
+          )}
+
+          <button
+            className="fab"
+            data-testid="fab-add-job"
+            onClick={openAdd}
+            aria-label="Add job"
+          >
+            <Plus size={26} strokeWidth={2.5} />
+          </button>
+        </>
+      ) : (
+        <Reports jobs={jobs} />
       )}
 
-      <button
-        className="fab"
-        data-testid="fab-add-job"
-        onClick={() => setOpen(true)}
-        aria-label="Add job"
-      >
-        <Plus size={26} strokeWidth={2.5} />
-      </button>
-
-      <AddJobDialog open={open} onOpenChange={setOpen} onAdded={handleAdded} />
+      <JobDialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setEditingJob(null);
+        }}
+        onSaved={handleSaved}
+        job={editingJob}
+      />
     </div>
   );
 }

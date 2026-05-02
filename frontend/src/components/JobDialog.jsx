@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { addJob, uploadPhoto, photoUrl, formatINR } from "@/lib/api";
+import { addJob, editJob, uploadPhoto, photoUrl, formatINR } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2, Camera, ImagePlus, X } from "lucide-react";
 
@@ -25,12 +25,55 @@ const EMPTY = {
   photoPath: "", photoPreview: "",
 };
 
-export default function AddJobDialog({ open, onOpenChange, onAdded }) {
+/**
+ * Parse the stored "Work" string back into selected types + description.
+ * Format when saved: "Screen, Battery — cracked display"
+ */
+function parseWork(work) {
+  const w = (work || "").trim();
+  if (!w) return { types: [], description: "" };
+  const splitIdx = w.indexOf(" — ");
+  const head = splitIdx >= 0 ? w.slice(0, splitIdx) : w;
+  const tail = splitIdx >= 0 ? w.slice(splitIdx + 3).trim() : "";
+  const candidates = head.split(",").map((s) => s.trim()).filter(Boolean);
+  const matched = candidates.filter((c) => REPAIR_TYPES.includes(c));
+  // If head didn't match any known type, treat entire thing as description
+  if (matched.length === 0) return { types: [], description: w };
+  // Any unknown tokens in head become part of description
+  const extras = candidates.filter((c) => !REPAIR_TYPES.includes(c));
+  const description = [extras.join(", "), tail].filter(Boolean).join(" — ");
+  return { types: matched, description };
+}
+
+export default function JobDialog({ open, onOpenChange, onSaved, job }) {
+  const isEdit = !!job;
   const [f, setF] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
+
+  // Seed form from job on open (edit mode) or reset (add mode)
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit) {
+      const { types, description } = parseWork(job.Work);
+      setF({
+        name: job.Name || "",
+        phone: job.Phone || "",
+        model: job.Model || "",
+        types,
+        description,
+        cost: String(job.Cost ?? ""),
+        amount: String(job.Amount ?? ""),
+        percentage: Number(job.Percentage) || 30,
+        photoPath: job.Photo || "",
+        photoPreview: "",
+      });
+    } else {
+      setF(EMPTY);
+    }
+  }, [open, isEdit, job]);
 
   const profit = useMemo(() => Number(f.amount || 0) - Number(f.cost || 0), [f.amount, f.cost]);
   const share = useMemo(
@@ -44,8 +87,6 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
       types: p.types.includes(t) ? p.types.filter((x) => x !== t) : [...p.types, t],
     }));
 
-  const reset = () => setF(EMPTY);
-
   const handleFile = async (file) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -56,7 +97,6 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
       toast.error("Image too large (max 8MB)");
       return;
     }
-    // quick local preview
     const reader = new FileReader();
     reader.onload = (e) => setF((p) => ({ ...p, photoPreview: e.target.result }));
     reader.readAsDataURL(file);
@@ -89,7 +129,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
 
     setSubmitting(true);
     try {
-      await addJob({
+      const payload = {
         name: f.name.trim(),
         phone: f.phone.trim(),
         model: f.model.trim(),
@@ -98,13 +138,17 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
         amount: Number(f.amount || 0),
         percentage: Number(f.percentage),
         photo: f.photoPath || "",
-      });
-      reset();
+      };
+      if (isEdit) {
+        await editJob(job.ID, payload);
+      } else {
+        await addJob(payload);
+      }
       onOpenChange(false);
-      onAdded && onAdded();
+      onSaved && onSaved();
     } catch (err) {
       console.error(err);
-      toast.error("Failed to add job");
+      toast.error(isEdit ? "Failed to update job" : "Failed to add job");
     } finally {
       setSubmitting(false);
     }
@@ -116,17 +160,21 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="dialog-content max-w-lg max-h-[92vh] overflow-y-auto"
-        data-testid="add-job-dialog"
+        data-testid="job-dialog"
       >
         <DialogHeader>
-          <DialogTitle style={{ color: "var(--text)" }}>New Repair Job</DialogTitle>
+          <DialogTitle style={{ color: "var(--text)" }}>
+            {isEdit ? "Edit Job" : "New Repair Job"}
+          </DialogTitle>
           <DialogDescription style={{ color: "var(--muted)" }}>
-            Fill in details. Profit and share are calculated automatically.
+            {isEdit
+              ? "Update any field. Profit and share recalculate automatically."
+              : "Fill in details. Profit and share are calculated automatically."}
           </DialogDescription>
         </DialogHeader>
 
         <form className="form" onSubmit={onSubmit}>
-          {/* Photo capture */}
+          {/* Photo */}
           <div className="field">
             <label>Phone photo</label>
             {previewSrc ? (
@@ -170,18 +218,13 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               </div>
             )}
             <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
+              ref={cameraRef} type="file" accept="image/*" capture="environment"
               style={{ display: "none" }}
               onChange={(e) => handleFile(e.target.files?.[0])}
               data-testid="input-camera"
             />
             <input
-              ref={galleryRef}
-              type="file"
-              accept="image/*"
+              ref={galleryRef} type="file" accept="image/*"
               style={{ display: "none" }}
               onChange={(e) => handleFile(e.target.files?.[0])}
               data-testid="input-gallery"
@@ -204,8 +247,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               <label>Phone</label>
               <input
                 data-testid="input-phone"
-                className="input"
-                inputMode="tel"
+                className="input" inputMode="tel"
                 value={f.phone}
                 onChange={(e) => setF({ ...f, phone: e.target.value })}
                 placeholder="98xxxxxxxx"
@@ -256,8 +298,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               <label>Cost (₹)</label>
               <input
                 data-testid="input-cost"
-                className="input mono"
-                inputMode="numeric"
+                className="input mono" inputMode="numeric"
                 value={f.cost}
                 onChange={(e) => setF({ ...f, cost: e.target.value.replace(/[^0-9.]/g, "") })}
                 placeholder="0"
@@ -267,8 +308,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
               <label>Amount (₹)</label>
               <input
                 data-testid="input-amount"
-                className="input mono"
-                inputMode="numeric"
+                className="input mono" inputMode="numeric"
                 value={f.amount}
                 onChange={(e) => setF({ ...f, amount: e.target.value.replace(/[^0-9.]/g, "") })}
                 placeholder="0"
@@ -284,7 +324,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
                   type="button"
                   key={p}
                   data-testid={`chip-percent-${p}`}
-                  className={`chip ${f.percentage === p ? "active" : ""}`}
+                  className={`chip ${Number(f.percentage) === p ? "active" : ""}`}
                   onClick={() => setF({ ...f, percentage: p })}
                 >
                   {p}%
@@ -324,9 +364,7 @@ export default function AddJobDialog({ open, onOpenChange, onAdded }) {
                 <>
                   <Loader2 size={14} className="spin" /> Saving…
                 </>
-              ) : (
-                "Save Job"
-              )}
+              ) : isEdit ? "Save Changes" : "Save Job"}
             </button>
           </DialogFooter>
         </form>

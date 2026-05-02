@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { CheckCircle2, Loader2, Phone, Smartphone, ImageIcon } from "lucide-react";
+import { CheckCircle2, Loader2, Phone, Smartphone, ImageIcon, Pencil } from "lucide-react";
 import { photoUrl } from "@/lib/api";
 
-export default function JobCard({ job, onComplete, busy, formatINR, display }) {
+export default function JobCard({ job, onComplete, onEdit, busy, formatINR, display }) {
   const isCompleted = job.Status === "Completed";
   const [zoom, setZoom] = useState(false);
   const photo = job.Photo ? photoUrl(job.Photo) : "";
@@ -40,12 +40,24 @@ export default function JobCard({ job, onComplete, busy, formatINR, display }) {
           </div>
           <div className="job-work">{display(job.Work)}</div>
         </div>
-        <span
-          className={`badge ${isCompleted ? "completed" : "pending"}`}
-          data-testid={`job-status-${job.ID}`}
-        >
-          {isCompleted ? "Completed" : "Pending"}
-        </span>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+          <span
+            className={`badge ${isCompleted ? "completed" : "pending"}`}
+            data-testid={`job-status-${job.ID}`}
+          >
+            {isCompleted ? "Completed" : "Pending"}
+          </span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => onEdit(job)}
+            data-testid={`btn-edit-${job.ID}`}
+            aria-label="Edit job"
+          >
+            <Pencil size={13} />
+          </button>
+        </div>
       </div>
 
       <div className="grid-3">

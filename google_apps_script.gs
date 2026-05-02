@@ -90,13 +90,28 @@ function doPost(e) {
       for (let i = 0; i < ids.length; i++) {
         if (String(ids[i][0]) === String(body.id)) {
           const rowIndex = i + 2;
-          const setCol = (name, val) => {
-            const c = COLUMNS.indexOf(name);
-            if (c >= 0 && val !== undefined) sh.getRange(rowIndex, c + 1).setValue(val);
+          // Generic: any column name present in body is applied.
+          // Sheet column names are the canonical keys (ID, Name, ..., Photo).
+          // We ignore "action" and "id" from the body.
+          Object.keys(body).forEach(k => {
+            if (k === "action" || k === "id") return;
+            const c = COLUMNS.indexOf(k);
+            if (c < 0) return;
+            const val = NUMERIC.has(k) ? Number(body[k] || 0) : body[k];
+            sh.getRange(rowIndex, c + 1).setValue(val);
+          });
+          // Backward-compat lowercase aliases from earlier clients
+          const aliases = {
+            status: "Status",
+            completed_date: "completed_date",
+            completed_time: "completed_time"
           };
-          setCol("Status", body.status);
-          setCol("completed_date", body.completed_date);
-          setCol("completed_time", body.completed_time);
+          Object.keys(aliases).forEach(k => {
+            if (body[k] === undefined) return;
+            if (Object.prototype.hasOwnProperty.call(body, aliases[k])) return; // canonical already set
+            const c = COLUMNS.indexOf(aliases[k]);
+            if (c >= 0) sh.getRange(rowIndex, c + 1).setValue(body[k]);
+          });
           return ok_({ ok: true, id: body.id });
         }
       }

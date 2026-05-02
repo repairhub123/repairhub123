@@ -264,3 +264,90 @@ html, body, #root, .App {
   max-width: 95vw; max-height: 90vh;
   border-radius: 12px; border: 1px solid var(--line);
 }
+
+/* Edit icon button on job card */
+.icon-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--muted); cursor: pointer;
+  display: grid; place-items: center;
+  transition: all .15s ease;
+}
+.icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* View switch (Jobs / Reports) */
+.view-switch {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: 999px; margin-bottom: 18px;
+}
+.vbtn {
+  padding: 8px 18px; border-radius: 999px;
+  background: transparent; border: none;
+  color: var(--muted); font-size: 13px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+  transition: all .15s ease;
+}
+.vbtn:hover { color: var(--text); }
+.vbtn.active { background: var(--accent); color: #0a0b10; }
+
+/* Reports */
+.period-chips {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;
+}
+.report-header {
+  font-size: 11px; color: var(--muted); margin: 6px 2px 14px;
+  letter-spacing: 0.04em;
+}
+.report-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+  margin-bottom: 22px;
+}
+.report-card {
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px;
+  transition: border-color .15s ease;
+}
+.report-card:hover { border-color: #333850; }
+.report-top {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--muted); margin-bottom: 8px;
+}
+.report-icon {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: var(--bg-2); color: var(--text);
+}
+.report-card .k {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+}
+.report-card .v {
+  font-size: 20px; font-weight: 700; margin-top: 2px;
+}
+.report-card.accent .v { color: var(--accent); }
+.report-card.status-split {
+  display: flex; justify-content: space-between; gap: 10px; align-items: flex-end;
+}
+.report-card.status-split .v { font-size: 22px; }
+
+.recent-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 8px 2px 10px;
+}
+.recent-head h3 {
+  font-size: 13px; font-weight: 700; margin: 0;
+  color: var(--text); letter-spacing: -0.01em;
+}
+.recent-list {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;
+}
+.recent-row {
+  display: flex; gap: 10px; padding: 12px 14px;
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.recent-name { font-size: 14px; font-weight: 600; }
+.recent-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.recent-amount { font-size: 14px; font-weight: 600; }
+.recent-share { font-size: 12px; font-weight: 700; }
+.recent-share.accent { color: var(--accent); }

@@ -91,9 +91,19 @@ class JobCreate(BaseModel):
 
 class JobUpdate(BaseModel):
     id: str
+    # Completion fields
     status: Optional[str] = None
     completed_date: Optional[str] = None
     completed_time: Optional[str] = None
+    # Editable fields (all optional; only non-None ones are applied)
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    model: Optional[str] = None
+    work: Optional[str] = None
+    cost: Optional[float] = None
+    amount: Optional[float] = None
+    percentage: Optional[float] = None
+    photo: Optional[str] = None
 
 
 # ============== HELPERS ==============
@@ -229,26 +239,70 @@ async def add_job(job: JobCreate):
 
 @api_router.post("/jobs/update")
 async def update_job(upd: JobUpdate):
-    payload = {
-        "action": "update",
-        "id": upd.id,
-        "status": upd.status or "Completed",
-        "completed_date": upd.completed_date or now_date(),
-        "completed_time": upd.completed_time or now_time(),
-    }
+    # Read existing record (from sheet or mongo) so we can recompute Profit/Share correctly
+    existing: Optional[Dict[str, Any]] = None
+    if SHEET_URL:
+        rows = sheet_get() or []
+        for r in rows:
+            if str(r.get("ID", "")) == str(upd.id):
+                existing = normalize_job(r)
+                break
+    else:
+        doc = await db.jobs.find_one({"ID": upd.id}, {"_id": 0})
+        if doc:
+            existing = normalize_job(doc)
+
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Build the set of field updates
+    updates: Dict[str, Any] = {}
+
+    # Mark-completed shortcut: caller passed status without the other fields
+    if upd.status is not None:
+        updates["Status"] = upd.status
+    if upd.completed_date is not None:
+        updates["completed_date"] = upd.completed_date
+    if upd.completed_time is not None:
+        updates["completed_time"] = upd.completed_time
+    # If marking completed and no explicit completed_date/time, auto-stamp
+    if upd.status == "Completed" and upd.completed_date is None:
+        updates["completed_date"] = now_date()
+    if upd.status == "Completed" and upd.completed_time is None:
+        updates["completed_time"] = now_time()
+
+    # Editable string fields
+    for src, dst in [("name", "Name"), ("phone", "Phone"), ("model", "Model"),
+                     ("work", "Work"), ("photo", "Photo")]:
+        v = getattr(upd, src)
+        if v is not None:
+            updates[dst] = v.strip() if isinstance(v, str) else v
+
+    # Editable numeric fields — recompute Profit/Share if any changes
+    numeric_changed = any(getattr(upd, k) is not None for k in ("cost", "amount", "percentage"))
+    if numeric_changed:
+        new_cost = to_num(upd.cost if upd.cost is not None else existing["Cost"])
+        new_amount = to_num(upd.amount if upd.amount is not None else existing["Amount"])
+        new_pct = to_num(upd.percentage if upd.percentage is not None else existing["Percentage"]) or 30
+        new_profit = new_amount - new_cost
+        new_share = round(new_profit * (new_pct / 100.0), 2)
+        updates.update({
+            "Cost": new_cost,
+            "Amount": new_amount,
+            "Percentage": new_pct,
+            "Profit": new_profit,
+            "Share": new_share,
+        })
+
+    if not updates:
+        return {"ok": True, "id": upd.id, "unchanged": True}
 
     if SHEET_URL:
-        sheet_post(payload)
+        sheet_post({"action": "update", "id": upd.id, **updates})
     else:
-        await db.jobs.update_one(
-            {"ID": upd.id},
-            {"$set": {
-                "Status": payload["status"],
-                "completed_date": payload["completed_date"],
-                "completed_time": payload["completed_time"],
-            }},
-        )
-    return {"ok": True, **payload}
+        await db.jobs.update_one({"ID": upd.id}, {"$set": updates})
+
+    return {"ok": True, "id": upd.id, "updated": list(updates.keys())}
 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"}

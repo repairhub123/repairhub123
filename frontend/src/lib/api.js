@@ -41,6 +41,11 @@ export async function markCompleted(id) {
   return res.data;
 }
 
+export async function editJob(id, patch) {
+  const res = await api.post("/jobs/update", { id, ...patch });
+  return res.data;
+}
+
 export async function fetchConfig() {
   const res = await api.get("/config");
   return res.data;
