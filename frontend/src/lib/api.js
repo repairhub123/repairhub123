@@ -29,6 +29,7 @@ export async function uploadPhoto(file) {
 
 export function photoUrl(path) {
   if (!path) return "";
+  if (path.startsWith("http")) return path;
   return `${API}/files/${path}`;
 }
 
