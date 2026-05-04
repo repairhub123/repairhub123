@@ -1,5 +1,12 @@
 {
   "rootDirectory": "frontend",
-  
-  "outputDirectory": "build"
+  "outputDirectory": "build",
+  "env": {
+    "NODE_OPTIONS": "--openssl-legacy-provider"
+  },
+  "build": {
+    "env": {
+      "NODE_OPTIONS": "--openssl-legacy-provider"
+    }
+  }
 }
