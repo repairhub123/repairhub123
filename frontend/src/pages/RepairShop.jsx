@@ -26,7 +26,7 @@ export default function RepairShop({ role, onSwitchRole }) {
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
-  const [sheetConnected, setSheetConnected] = useState(true);
+  const [sheetConnected, setSheetConnected] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [historyPhone, setHistoryPhone] = useState(null);
 
