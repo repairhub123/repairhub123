@@ -1,5 +1,5 @@
 {
   "rootDirectory": "frontend",
-  "buildCommand": "DISABLE_ESLINT_PLUGIN=true npm run build",
+  
   "outputDirectory": "build"
 }
