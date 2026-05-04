@@ -1,10 +1,10 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const GOOGLE_URL = process.env.REACT_APP_GOOGLE_SHEET_WEBAPP_URL || "https://script.google.com/macros/s/AKfycbzdecNk1YJGoYxdguCazxv2r104Xnwg9UaketjQmr4QoWsUvIeHqFDXXOikz7HtUtg/exec";
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({
-  baseURL:"https://script.google.com/macros/s/AKfycbzdecNk1YJGoYxdguCazxv2r104Xnwg9UaketjQmr4QoWsUvIeHqFDXXOiKz7HtUtg/exec",
+  baseURL:GOOGLE_URL,
   headers: { "Content-Type": "application/json" },
 });
 
