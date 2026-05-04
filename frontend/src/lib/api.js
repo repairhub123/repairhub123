@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const GOOGLE_URL = process.env.REACT_APP_GOOGLE_SHEET_WEBAPP_URL || "https://script.google.com/macros/s/AKfycbzdecNk1YJGoYxdguCazxv2r104Xnwg9UaketjQmr4QoWsUvIeHqFDXXOikz7HtUtg/exec";
-export const API = `${BACKEND_URL}/api`;
+export const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
+
 
 export const api = axios.create({
   baseURL:GOOGLE_URL,
