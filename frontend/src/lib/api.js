@@ -1,11 +1,10 @@
 import axios from "axios";
 
-const GOOGLE_URL = process.env.REACT_APP_GOOGLE_SHEET_WEBAPP_URL || "https://script.google.com/macros/s/AKfycbzdecNk1YJGoYxdguCazxv2r104Xnwg9UaketjQmr4QoWsUvIeHqFDXXOikz7HtUtg/exec";
-export const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
-
+const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
+export const API = `${BACKEND}/api`;
 
 export const api = axios.create({
-  baseURL:GOOGLE_URL,
+  baseURL: API,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -15,7 +14,6 @@ export async function fetchJobs() {
 }
 
 export async function addJob(payload) {
-  // Always POST with JSON.stringify body (axios already does JSON)
   const res = await api.post("/jobs", payload);
   return res.data;
 }
@@ -26,7 +24,7 @@ export async function uploadPhoto(file) {
   const res = await api.post("/upload", fd, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return res.data; // { path: "repair-desk/photos/<uuid>.jpg" }
+  return res.data;
 }
 
 export function photoUrl(path) {
@@ -35,10 +33,7 @@ export function photoUrl(path) {
 }
 
 export async function markCompleted(id) {
-  const res = await api.post("/jobs/update", {
-    id,
-    status: "Completed",
-  });
+  const res = await api.post("/jobs/update", { id, status: "Completed" });
   return res.data;
 }
 
