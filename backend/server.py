@@ -6,6 +6,7 @@ import os
 import json
 import logging
 import base64
+import time
 from pathlib import Path
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
@@ -24,6 +25,10 @@ db = client[os.environ['DB_NAME']]
 SHEET_URL = os.environ.get('GOOGLE_SHEET_WEBAPP_URL', '').strip()
 IMGBB_KEY = os.environ.get('IMGBB_API_KEY', '').strip()
 IST = ZoneInfo("Asia/Kolkata")
+
+# --- Simple Cache (Google Sheet slow load fix) ---
+_cache: Dict[str, Any] = {"data": None, "ts": 0}
+CACHE_TTL = 30  # 30 seconds
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -143,15 +148,26 @@ def normalize_job(row: Dict[str, Any]) -> Dict[str, Any]:
 def sheet_get() -> List[Dict[str, Any]]:
     if not SHEET_URL:
         return None
+    now = time.time()
+    # Cache valid hai toh Sheet call mat karo
+    if _cache["data"] is not None and (now - _cache["ts"]) < CACHE_TTL:
+        logger.info("sheet_get: returning cached data")
+        return _cache["data"]
     try:
         r = requests.get(SHEET_URL, timeout=20)
         r.raise_for_status()
         data = r.json()
         if isinstance(data, dict) and "jobs" in data:
-            return data["jobs"]
-        if isinstance(data, list):
-            return data
-        return []
+            result = data["jobs"]
+        elif isinstance(data, list):
+            result = data
+        else:
+            result = []
+        # Cache update karo
+        _cache["data"] = result
+        _cache["ts"] = now
+        logger.info(f"sheet_get: fetched {len(result)} rows from sheet")
+        return result
     except Exception as e:
         logger.error(f"sheet_get failed: {e}")
         raise HTTPException(status_code=502, detail=f"Google Sheet fetch failed: {e}")
@@ -167,6 +183,9 @@ def sheet_post(payload: Dict[str, Any]) -> Dict[str, Any]:
             timeout=20,
         )
         r.raise_for_status()
+        # Post ke baad cache clear karo taaki fresh data aaye
+        _cache["data"] = None
+        _cache["ts"] = 0
         return r.json()
     except Exception as e:
         logger.error(f"sheet_post failed: {e}")
