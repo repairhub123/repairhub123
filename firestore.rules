@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation helper for Job entity
+    function isValidJob(data) {
+      return data.ID is string && data.ID.size() <= 64 &&
+             data.Name is string && data.Name.size() <= 100 &&
+             (data.Phone == null || (data.Phone is string && data.Phone.size() <= 20)) &&
+             (data.Model == null || (data.Model is string && data.Model.size() <= 100)) &&
+             (data.Work == null || (data.Work is string && data.Work.size() <= 500)) &&
+             (data.Cost is number) &&
+             (data.Amount is number) &&
+             (data.Profit is number) &&
+             (data.Percentage is number) &&
+             (data.Share is number) &&
+             data.Status in ['Pending', 'Completed'] &&
+             (data.received_date is string) &&
+             (data.received_time is string) &&
+             (data.completed_date is string) &&
+             (data.completed_time is string) &&
+             (data.Photo == null || (data.Photo is string && data.Photo.size() <= 1000)) &&
+             (data.technician_share is number) &&
+             (data.boss_share is number) &&
+             (data.added_by == null || (data.added_by is string && data.added_by.size() <= 100));
+    }
+
+    match /jobs/{jobId} {
+      // Allow read/write for any authenticated user for now, 
+      // as the app doesn't have a users collection yet.
+      // We rely on the app's internal role mechanism for logic, but secure the data here.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidJob(incoming());
+      allow update: if isSignedIn() && isValidJob(incoming()) && (
+        // Action: Mark as Completed
+        (incoming().diff(existing()).affectedKeys().hasOnly(['Status', 'completed_date', 'completed_time', 'updatedAt', 'Profit', 'Share', 'technician_share', 'boss_share'])) ||
+        // Action: Generic edit
+        (incoming().diff(existing()).affectedKeys().hasAny(['Name', 'Phone', 'Model', 'Work', 'Cost', 'Amount', 'Percentage', 'Photo', 'Profit', 'Share', 'technician_share', 'boss_share', 'updatedAt']))
+      );
+      allow delete: if isSignedIn();
+    }
+  }
+}

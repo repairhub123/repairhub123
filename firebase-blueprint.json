@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "Job": {
+      "title": "Job",
+      "description": "A repair job record",
+      "type": "object",
+      "properties": {
+        "ID": { "type": "string", "description": "Unique short ID" },
+        "Name": { "type": "string" },
+        "Phone": { "type": "string" },
+        "Model": { "type": "string" },
+        "Work": { "type": "string" },
+        "Cost": { "type": "number" },
+        "Amount": { "type": "number" },
+        "Profit": { "type": "number" },
+        "Percentage": { "type": "number" },
+        "Share": { "type": "number" },
+        "Status": { "type": "string", "enum": ["Pending", "Completed"] },
+        "received_date": { "type": "string" },
+        "received_time": { "type": "string" },
+        "completed_date": { "type": "string" },
+        "completed_time": { "type": "string" },
+        "Photo": { "type": "string" },
+        "technician_share": { "type": "number" },
+        "boss_share": { "type": "number" },
+        "added_by": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ID", "Name", "Status"]
+    }
+  },
+  "firestore": {
+    "jobs": {
+      "schema": "Job",
+      "description": "Collection of repair jobs"
+    }
+  }
+}
