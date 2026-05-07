@@ -1,0 +1,6 @@
+{
+  "name": "Repair Desk Pro",
+  "description": "Mobile Repair Shop Management with Firebase Real-time Sync and Cloud Storage.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}
